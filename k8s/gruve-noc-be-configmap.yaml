@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: noc-agent-be-config
+  namespace: gruve-noc
+data:
+  MERAKI_BASE_URL: "https://api.meraki.com/api/v1"
+  MERAKI_REQUEST_TIMEOUT: "30.0"
+  LLM_BASE_URL: "http://qwen25-7b-instruct-predictor.noc-agent.svc.cluster.local/v1"
+  LLM_MODEL: "qwen25-7b-instruct"
+  LLM_MAX_TOKENS: "2048"
+  LLM_TEMPERATURE: "0.3"
+  LLM_TIMEOUT: "180.0"
+  MONGO_DB_NAME: "gruve_noc"
+  MONGO_COLLECTION_INCIDENTS: "incidents"
+  QDRANT_URL: "http://qdrant.reddit.svc.cluster.local:6333"
+  QDRANT_COLLECTION_NAME: "meraki_noc_knowledge"
+  QDRANT_TIMEOUT: "30.0"
+  RAG_RETRIEVAL_LIMIT: "5"
+  SNOW_INSTANCE_URL: "https://dev385032.service-now.com"
+  SNOW_INCIDENT_TABLE: "incident"
+  AAP_CONTROLLER_URL: "https://aap-controller-aap.apps.ocp-mig2.gruveai.com"
+  AAP_VERIFY_SSL: "false"
+  PIPELINE_POLL_INTERVAL_SECONDS: "120"
+  PIPELINE_DEFAULT_WINDOW_MINUTES: "5"
+  CORS_ALLOWED_ORIGINS: '["https://noc-agent-fe-gruve-noc.apps.ocp-mig2.gruveai.com"]'

@@ -1,0 +1,75 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: noc-agent-fe
+  namespace: gruve-noc
+  labels:
+    app: noc-agent-fe
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: noc-agent-fe
+  template:
+    metadata:
+      labels:
+        app: noc-agent-fe
+    spec:
+      serviceAccountName: default
+      containers:
+      - name: noc-agent-fe
+        image: image-registry.openshift-image-registry.svc:5000/gruve-noc/noc-agent-frontend:v1.0.0
+        ports:
+        - containerPort: 8080
+          name: http
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 30
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 15
+          failureThreshold: 3
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: noc-agent-fe
+  namespace: gruve-noc
+spec:
+  selector:
+    app: noc-agent-fe
+  ports:
+  - port: 8080
+    targetPort: 8080
+    name: http
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: noc-agent-fe
+  namespace: gruve-noc
+spec:
+  host: noc-gruve-noc.apps.ocp-mig2.gruveai.com
+  to:
+    kind: Service
+    name: noc-agent-fe
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
