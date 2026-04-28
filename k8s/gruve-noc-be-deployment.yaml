@@ -1,0 +1,87 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: noc-agent-be
+  namespace: gruve-noc
+  labels:
+    app: noc-agent-be
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: noc-agent-be
+  template:
+    metadata:
+      labels:
+        app: noc-agent-be
+    spec:
+      serviceAccountName: default
+      containers:
+      - name: noc-agent-be
+        image: image-registry.openshift-image-registry.svc:5000/gruve-noc/noc-agent-backend:v1.0.0
+        ports:
+        - containerPort: 8000
+          name: http
+        envFrom:
+        - configMapRef:
+            name: noc-agent-be-config
+        - secretRef:
+            name: noc-agent-be-secret
+        livenessProbe:
+          httpGet:
+            path: /livez
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8000
+          initialDelaySeconds: 15
+          periodSeconds: 15
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /livez
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 18
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: "1"
+            memory: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: noc-agent-be
+  namespace: gruve-noc
+spec:
+  selector:
+    app: noc-agent-be
+  ports:
+  - port: 8000
+    targetPort: 8000
+    name: http
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: noc-agent-be
+  namespace: gruve-noc
+spec:
+  host: noc-api-gruve-noc.apps.ocp-mig2.gruveai.com
+  to:
+    kind: Service
+    name: noc-agent-be
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

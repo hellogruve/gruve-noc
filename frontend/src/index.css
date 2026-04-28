@@ -1,0 +1,110 @@
+/* Gruve NOC Agent — Global Styles */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --gruve-green:       #00D46A;
+  --gruve-green-dim:   #00A352;
+  --gruve-green-glow:  rgba(0, 212, 106, 0.15);
+  --bg-base:           #0A0C0F;
+  --bg-surface:        #111318;
+  --bg-elevated:       #1A1D24;
+  --bg-border:         #252830;
+  --text-primary:      #E8EAF0;
+  --text-secondary:    #8B8FA8;
+  --text-muted:        #4A4E63;
+  --status-critical:   #FF4757;
+  --status-warning:    #FFB300;
+  --status-ok:         #00D46A;
+  --status-info:       #3B8BDE;
+  --status-unknown:    #6B7280;
+  --radius-sm:         6px;
+  --radius-md:         10px;
+  --radius-lg:         16px;
+}
+
+html, body, #root {
+  height: 100%;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: var(--bg-base); }
+::-webkit-scrollbar-thumb { background: var(--bg-border); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+.mono { font-family: 'Fira Code', 'Courier New', monospace; }
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.badge.critical { background: rgba(255,71,87,0.15);   color: var(--status-critical); border: 1px solid rgba(255,71,87,0.3); }
+.badge.warning  { background: rgba(255,179,0,0.15);   color: var(--status-warning);  border: 1px solid rgba(255,179,0,0.3); }
+.badge.ok       { background: rgba(0,212,106,0.12);   color: var(--status-ok);       border: 1px solid rgba(0,212,106,0.3); }
+.badge.info     { background: rgba(59,139,222,0.15);  color: var(--status-info);     border: 1px solid rgba(59,139,222,0.3); }
+.badge.unknown  { background: rgba(107,114,128,0.15); color: var(--status-unknown);  border: 1px solid rgba(107,114,128,0.3); }
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(0.8); }
+}
+.pulse-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s ease;
+}
+.btn-primary   { background: var(--gruve-green); color: #000; }
+.btn-primary:hover { background: #00f077; }
+.btn-secondary { background: var(--bg-elevated); color: var(--text-primary); border: 1px solid var(--bg-border); }
+.btn-secondary:hover { border-color: var(--gruve-green); color: var(--gruve-green); }
+.btn-danger    { background: rgba(255,71,87,0.15); color: var(--status-critical); border: 1px solid rgba(255,71,87,0.3); }
+.btn-danger:hover { background: rgba(255,71,87,0.25); }
+.btn:disabled  { opacity: 0.4; cursor: not-allowed; }
+
+.card {
+  background: var(--bg-surface);
+  border: 1px solid var(--bg-border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+}
+
+input, textarea {
+  background: var(--bg-elevated);
+  border: 1px solid var(--bg-border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 13px;
+  padding: 8px 12px;
+  outline: none;
+  width: 100%;
+  transition: border-color 0.15s;
+}
+input:focus, textarea:focus { border-color: var(--gruve-green); }
+textarea { resize: vertical; min-height: 60px; }

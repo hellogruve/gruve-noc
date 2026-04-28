@@ -1,0 +1,33 @@
+# Gruve NOC Agent — Backend Dependencies
+# ----------------------------------------
+
+# Web framework
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+
+# Settings management (reads from env vars / secrets)
+pydantic==2.8.2
+pydantic-settings==2.4.0
+
+# HTTP client (Meraki API, ServiceNow, AAP)
+httpx==0.27.2
+
+# MongoDB async driver
+motor==3.5.1
+pymongo==4.8.0
+
+# Qdrant vector DB client (RAG knowledge base)
+qdrant-client==1.11.3
+
+# OpenAI-compatible client (talks to Qwen 2.5 7B on KServe)
+openai==1.45.1
+
+# Async utilities
+aiofiles==24.1.0
+asyncio-throttle==1.0.2
+
+# Date/time handling
+python-dateutil==2.9.0
+
+# JSON and data utilities
+python-multipart==0.0.12
