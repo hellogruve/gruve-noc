@@ -1,0 +1,93 @@
+name: Build and Deploy gruve-noc
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+
+env:
+  OCP_REGISTRY: image-registry.openshift-image-registry.svc:5000
+  NAMESPACE: gruve-noc
+
+jobs:
+
+  build-backend:
+    runs-on: [self-hosted, ocp, gruve-noc]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to OCP Registry
+        run: |
+          podman login ${{ env.OCP_REGISTRY }} \
+            -u ${{ secrets.OCP_USERNAME }} \
+            -p ${{ secrets.OCP_TOKEN }} \
+            --tls-verify=false
+
+      - name: Build and Push Backend
+        run: |
+          podman build \
+            -t ${{ env.OCP_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-backend:${GITHUB_SHA::8} \
+            -t ${{ env.OCP_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-backend:latest \
+            ./backend
+          podman push \
+            ${{ env.OCP_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-backend:${GITHUB_SHA::8} \
+            --tls-verify=false
+          podman push \
+            ${{ env.OCP_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-backend:latest \
+            --tls-verify=false
+
+  build-frontend:
+    runs-on: [self-hosted, ocp, gruve-noc]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to OCP Registry
+        run: |
+          podman login ${{ env.OCP_REGISTRY }} \
+            -u ${{ secrets.OCP_USERNAME }} \
+            -p ${{ secrets.OCP_TOKEN }} \
+            --tls-verify=false
+
+      - name: Build and Push Frontend
+        run: |
+          podman build \
+            --build-arg VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }} \
+            -t ${{ env.OCP_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-frontend:${GITHUB_SHA::8} \
+            -t ${{ env.OCP_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-frontend:latest \
+            ./frontend
+          podman push \
+            ${{ env.OCP_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-frontend:${GITHUB_SHA::8} \
+            --tls-verify=false
+          podman push \
+            ${{ env.OCP_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-frontend:latest \
+            --tls-verify=false
+
+  update-manifests:
+    runs-on: [self-hosted, ocp, gruve-noc]
+    needs: [build-backend, build-frontend]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update image tags
+        run: |
+          TAG=${GITHUB_SHA::8}
+          sed -i "s|noc-agent-backend:.*|noc-agent-backend:${TAG}|g" \
+            k8s/gruve-noc-be-deployment.yaml
+          sed -i "s|noc-agent-frontend:.*|noc-agent-frontend:${TAG}|g" \
+            k8s/gruve-noc-fe-deployment.yaml
+
+      - name: Commit and push updated manifests
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add k8s/
+          git diff --staged --quiet || \
+            git commit -m "ci: update images to ${GITHUB_SHA::8}"
+          git push
