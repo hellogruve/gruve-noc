@@ -31,22 +31,21 @@ jobs:
           fi
 
       - name: Login to Harbor
-        run: |
-          docker login ${{ env.HARBOR_REGISTRY }} \
-            -u ${{ secrets.HARBOR_USERNAME }} \
-            -p ${{ secrets.HARBOR_TOKEN }}
-            
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.HARBOR_REGISTRY }}
+          username: ${{ secrets.HARBOR_USERNAME }}
+          password: ${{ secrets.HARBOR_TOKEN }}
+
       - name: Build and Push Backend
         run: |
-          docker build   \
+          docker build \
             -t ${{ env.HARBOR_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-backend:${{ steps.tag.outputs.TAG }} \
             -t ${{ env.HARBOR_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-backend:latest \
             ./backend
           docker push \
-             \
             ${{ env.HARBOR_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-backend:${{ steps.tag.outputs.TAG }}
           docker push \
-             \
             ${{ env.HARBOR_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-backend:latest
 
   build-frontend:
@@ -65,23 +64,22 @@ jobs:
           fi
 
       - name: Login to Harbor
-        run: |
-          docker login ${{ env.HARBOR_REGISTRY }} \
-            -u ${{ secrets.HARBOR_USERNAME }} \
-            -p ${{ secrets.HARBOR_TOKEN }}
-            
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.HARBOR_REGISTRY }}
+          username: ${{ secrets.HARBOR_USERNAME }}
+          password: ${{ secrets.HARBOR_TOKEN }}
+
       - name: Build and Push Frontend
         run: |
-          docker build  \
+          docker build \
             --build-arg VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }} \
             -t ${{ env.HARBOR_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-frontend:${{ steps.tag.outputs.TAG }} \
             -t ${{ env.HARBOR_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-frontend:latest \
             ./frontend
           docker push \
-             \
             ${{ env.HARBOR_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-frontend:${{ steps.tag.outputs.TAG }}
           docker push \
-             \
             ${{ env.HARBOR_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-frontend:latest
 
   update-manifests:
