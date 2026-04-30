@@ -19,7 +19,7 @@ spec:
       serviceAccountName: default
       containers:
       - name: noc-agent-be
-        image: image-registry.openshift-image-registry.svc:5000/gruve-noc/noc-agent-backend:v1.0.9
+        image: registry.gruveai.com/gruve-noc/noc-agent-backend:v1.0.0
         ports:
         - containerPort: 8000
           name: http
