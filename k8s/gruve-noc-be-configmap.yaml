@@ -6,7 +6,7 @@ metadata:
 data:
   MERAKI_BASE_URL: "https://api.meraki.com/api/v1"
   MERAKI_REQUEST_TIMEOUT: "30.0"
-  LLM_BASE_URL: "http://qwen25-7b-instruct-predictor.noc-agent.svc.cluster.local/v1"
+  LLM_BASE_URL: "http://qwen25-7b-instruct-predictor.noc-agent.svc.cluster.local:8080/v1"
   LLM_MODEL: "qwen25-7b-instruct"
   LLM_MAX_TOKENS: "2048"
   LLM_TEMPERATURE: "0.3"
