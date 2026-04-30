@@ -35,7 +35,7 @@ spec:
         - name: MONGO_INITDB_ROOT_USERNAME
           value: "gruve_user"
         - name: MONGO_INITDB_ROOT_PASSWORD
-          value: "Gruve@NOC2026!"
+          value: "Gruve2026"
         - name: MONGO_INITDB_DATABASE
           value: "gruve_noc"
         volumeMounts:
