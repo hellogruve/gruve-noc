@@ -1,4 +1,3 @@
-cat > /home/bhupesh/gruve-noc/.github/workflows/build-push.yml << 'EOF'
 name: Build and Deploy gruve-noc
 
 on:
@@ -7,6 +6,9 @@ on:
     paths:
       - 'backend/**'
       - 'frontend/**'
+  push:
+    tags:
+      - 'v*'
 
 env:
   HARBOR_REGISTRY: registry.gruveai.com
@@ -20,6 +22,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set image tag
+        id: tag
+        run: |
+          if [[ $GITHUB_REF == refs/tags/* ]]; then
+            echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          else
+            echo "TAG=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+          fi
+
       - name: Login to Harbor
         run: |
           podman login ${{ env.HARBOR_REGISTRY }} \
@@ -29,11 +40,11 @@ jobs:
       - name: Build and Push Backend
         run: |
           podman build \
-            -t ${{ env.HARBOR_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-backend:${GITHUB_SHA::8} \
+            -t ${{ env.HARBOR_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-backend:${{ steps.tag.outputs.TAG }} \
             -t ${{ env.HARBOR_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-backend:latest \
             ./backend
           podman push \
-            ${{ env.HARBOR_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-backend:${GITHUB_SHA::8}
+            ${{ env.HARBOR_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-backend:${{ steps.tag.outputs.TAG }}
           podman push \
             ${{ env.HARBOR_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-backend:latest
 
@@ -42,6 +53,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Set image tag
+        id: tag
+        run: |
+          if [[ $GITHUB_REF == refs/tags/* ]]; then
+            echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          else
+            echo "TAG=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+          fi
 
       - name: Login to Harbor
         run: |
@@ -53,11 +73,11 @@ jobs:
         run: |
           podman build \
             --build-arg VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }} \
-            -t ${{ env.HARBOR_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-frontend:${GITHUB_SHA::8} \
+            -t ${{ env.HARBOR_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-frontend:${{ steps.tag.outputs.TAG }} \
             -t ${{ env.HARBOR_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-frontend:latest \
             ./frontend
           podman push \
-            ${{ env.HARBOR_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-frontend:${GITHUB_SHA::8}
+            ${{ env.HARBOR_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-frontend:${{ steps.tag.outputs.TAG }}
           podman push \
             ${{ env.HARBOR_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-frontend:latest
 
@@ -70,12 +90,20 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set image tag
+        id: tag
+        run: |
+          if [[ $GITHUB_REF == refs/tags/* ]]; then
+            echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          else
+            echo "TAG=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+          fi
+
       - name: Update image tags
         run: |
-          TAG=${GITHUB_SHA::8}
-          sed -i "s|noc-agent-backend:.*|noc-agent-backend:${TAG}|g" \
+          sed -i "s|noc-agent-backend:.*|noc-agent-backend:${{ steps.tag.outputs.TAG }}|g" \
             k8s/gruve-noc-be-deployment.yaml
-          sed -i "s|noc-agent-frontend:.*|noc-agent-frontend:${TAG}|g" \
+          sed -i "s|noc-agent-frontend:.*|noc-agent-frontend:${{ steps.tag.outputs.TAG }}|g" \
             k8s/gruve-noc-fe-deployment.yaml
 
       - name: Commit and push updated manifests
@@ -84,6 +112,5 @@ jobs:
           git config user.email "actions@github.com"
           git add k8s/
           git diff --staged --quiet || \
-            git commit -m "ci: update images to ${GITHUB_SHA::8}"
+            git commit -m "ci: update images to ${{ steps.tag.outputs.TAG }}"
           git push
-EOF
