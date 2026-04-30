@@ -32,19 +32,19 @@ jobs:
 
       - name: Login to Harbor
         run: |
-          podman login ${{ env.HARBOR_REGISTRY }} \
+          podman --storage-driver=vfs login ${{ env.HARBOR_REGISTRY }} \
             -u ${{ secrets.HARBOR_USERNAME }} \
             -p ${{ secrets.HARBOR_TOKEN }}
 
       - name: Build and Push Backend
         run: |
-          podman build \
+          podman --storage-driver=vfs build \
             -t ${{ env.HARBOR_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-backend:${{ steps.tag.outputs.TAG }} \
             -t ${{ env.HARBOR_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-backend:latest \
             ./backend
-          podman push \
+          podman --storage-driver=vfs push \
             ${{ env.HARBOR_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-backend:${{ steps.tag.outputs.TAG }}
-          podman push \
+          podman --storage-driver=vfs push \
             ${{ env.HARBOR_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-backend:latest
 
   build-frontend:
@@ -64,20 +64,20 @@ jobs:
 
       - name: Login to Harbor
         run: |
-          podman login ${{ env.HARBOR_REGISTRY }} \
+          podman --storage-driver=vfs login ${{ env.HARBOR_REGISTRY }} \
             -u ${{ secrets.HARBOR_USERNAME }} \
             -p ${{ secrets.HARBOR_TOKEN }}
 
       - name: Build and Push Frontend
         run: |
-          podman build \
+          podman --storage-driver=vfs build \
             --build-arg VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }} \
             -t ${{ env.HARBOR_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-frontend:${{ steps.tag.outputs.TAG }} \
             -t ${{ env.HARBOR_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-frontend:latest \
             ./frontend
-          podman push \
+          podman --storage-driver=vfs push \
             ${{ env.HARBOR_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-frontend:${{ steps.tag.outputs.TAG }}
-          podman push \
+          podman --storage-driver=vfs push \
             ${{ env.HARBOR_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-frontend:latest
 
   update-manifests:
