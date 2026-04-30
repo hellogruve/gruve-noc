@@ -3,12 +3,11 @@ name: Build and Deploy gruve-noc
 on:
   push:
     branches: [ main ]
+    tags:
+      - 'v*'
     paths:
       - 'backend/**'
       - 'frontend/**'
-  push:
-    tags:
-      - 'v*'
 
 env:
   HARBOR_REGISTRY: registry.gruveai.com
