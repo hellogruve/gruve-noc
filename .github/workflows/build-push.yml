@@ -1,3 +1,4 @@
+cat > /home/bhupesh/gruve-noc/.github/workflows/build-push.yml << 'EOF'
 name: Build and Deploy gruve-noc
 
 on:
@@ -8,7 +9,7 @@ on:
       - 'frontend/**'
 
 env:
-  OCP_REGISTRY: image-registry.openshift-image-registry.svc:5000
+  HARBOR_REGISTRY: registry.gruveai.com
   NAMESPACE: gruve-noc
 
 jobs:
@@ -19,25 +20,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Login to OCP Registry
+      - name: Login to Harbor
         run: |
-          podman login ${{ env.OCP_REGISTRY }} \
-            -u ${{ secrets.OCP_USERNAME }} \
-            -p ${{ secrets.OCP_TOKEN }} \
-            --tls-verify=false
+          podman login ${{ env.HARBOR_REGISTRY }} \
+            -u ${{ secrets.HARBOR_USERNAME }} \
+            -p ${{ secrets.HARBOR_TOKEN }}
 
       - name: Build and Push Backend
         run: |
           podman build \
-            -t ${{ env.OCP_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-backend:${GITHUB_SHA::8} \
-            -t ${{ env.OCP_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-backend:latest \
+            -t ${{ env.HARBOR_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-backend:${GITHUB_SHA::8} \
+            -t ${{ env.HARBOR_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-backend:latest \
             ./backend
           podman push \
-            ${{ env.OCP_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-backend:${GITHUB_SHA::8} \
-            --tls-verify=false
+            ${{ env.HARBOR_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-backend:${GITHUB_SHA::8}
           podman push \
-            ${{ env.OCP_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-backend:latest \
-            --tls-verify=false
+            ${{ env.HARBOR_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-backend:latest
 
   build-frontend:
     runs-on: [self-hosted, ocp, gruve-noc]
@@ -45,26 +43,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Login to OCP Registry
+      - name: Login to Harbor
         run: |
-          podman login ${{ env.OCP_REGISTRY }} \
-            -u ${{ secrets.OCP_USERNAME }} \
-            -p ${{ secrets.OCP_TOKEN }} \
-            --tls-verify=false
+          podman login ${{ env.HARBOR_REGISTRY }} \
+            -u ${{ secrets.HARBOR_USERNAME }} \
+            -p ${{ secrets.HARBOR_TOKEN }}
 
       - name: Build and Push Frontend
         run: |
           podman build \
             --build-arg VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }} \
-            -t ${{ env.OCP_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-frontend:${GITHUB_SHA::8} \
-            -t ${{ env.OCP_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-frontend:latest \
+            -t ${{ env.HARBOR_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-frontend:${GITHUB_SHA::8} \
+            -t ${{ env.HARBOR_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-frontend:latest \
             ./frontend
           podman push \
-            ${{ env.OCP_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-frontend:${GITHUB_SHA::8} \
-            --tls-verify=false
+            ${{ env.HARBOR_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-frontend:${GITHUB_SHA::8}
           podman push \
-            ${{ env.OCP_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-frontend:latest \
-            --tls-verify=false
+            ${{ env.HARBOR_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-frontend:latest
 
   update-manifests:
     runs-on: [self-hosted, ocp, gruve-noc]
@@ -91,3 +86,4 @@ jobs:
           git diff --staged --quiet || \
             git commit -m "ci: update images to ${GITHUB_SHA::8}"
           git push
+EOF
