@@ -32,21 +32,21 @@ jobs:
 
       - name: Login to Harbor
         run: |
-          podman  login ${{ env.HARBOR_REGISTRY }} \
+          docker login ${{ env.HARBOR_REGISTRY }} \
             -u ${{ secrets.HARBOR_USERNAME }} \
             -p ${{ secrets.HARBOR_TOKEN }}
-            --storage-driver=vfs
+            
       - name: Build and Push Backend
         run: |
-          podman  build  --storage-driver=vfs \
+          docker build   \
             -t ${{ env.HARBOR_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-backend:${{ steps.tag.outputs.TAG }} \
             -t ${{ env.HARBOR_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-backend:latest \
             ./backend
-          podman  push \
-            --storage-driver=vfs \
+          docker push \
+             \
             ${{ env.HARBOR_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-backend:${{ steps.tag.outputs.TAG }}
-          podman  push \
-            --storage-driver=vfs \
+          docker push \
+             \
             ${{ env.HARBOR_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-backend:latest
 
   build-frontend:
@@ -66,22 +66,22 @@ jobs:
 
       - name: Login to Harbor
         run: |
-          podman  login ${{ env.HARBOR_REGISTRY }} \
+          docker login ${{ env.HARBOR_REGISTRY }} \
             -u ${{ secrets.HARBOR_USERNAME }} \
             -p ${{ secrets.HARBOR_TOKEN }}
-            --storage-driver=vfs
+            
       - name: Build and Push Frontend
         run: |
-          podman  build --storage-driver=vfs \
+          docker build  \
             --build-arg VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }} \
             -t ${{ env.HARBOR_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-frontend:${{ steps.tag.outputs.TAG }} \
             -t ${{ env.HARBOR_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-frontend:latest \
             ./frontend
-          podman  push \
-            --storage-driver=vfs \
+          docker push \
+             \
             ${{ env.HARBOR_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-frontend:${{ steps.tag.outputs.TAG }}
-          podman  push \
-            --storage-driver=vfs \
+          docker push \
+             \
             ${{ env.HARBOR_REGISTRY }}/${{ env.NAMESPACE }}/noc-agent-frontend:latest
 
   update-manifests:
