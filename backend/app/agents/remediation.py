@@ -1,13 +1,13 @@
 """
 remediation.py — Remediation agent.
-When the NOC engineer clicks "Run Remediation" in the UI,
-this agent determines the right AAP job template and launches it.
+Template IDs loaded dynamically from ConfigMap via aap_service.
+No rebuild needed to add new templates — just update ConfigMap.
 """
 
 import logging
 from typing import Optional
 
-from app.services.aap import aap_service, INCIDENT_JOB_TEMPLATE_MAP
+from app.services.aap import aap_service
 
 logger = logging.getLogger("gruve.noc.remediation_agent")
 
@@ -25,19 +25,17 @@ class RemediationAgent:
         network_id    = incident.get("network_id", "")
         network_name  = incident.get("network_name", "")
 
-        template_id = job_template_id or INCIDENT_JOB_TEMPLATE_MAP.get(incident_type)
+        # Use explicitly passed ID or look up from ConfigMap dynamically
+        template_id = job_template_id or aap_service.get_template_id(incident_type)
 
         if not template_id:
-            logger.warning(
-                f"No AAP job template mapped for {incident_type}. "
-                f"Create a job template in AAP and update INCIDENT_JOB_TEMPLATE_MAP."
-            )
+            logger.warning(f"No AAP template configured for {incident_type}")
             return {
                 "status":  "not_configured",
                 "message": (
                     f"No job template configured for {incident_type}. "
-                    f"Please create an AAP job template and map it in "
-                    f"services/aap.py under INCIDENT_JOB_TEMPLATE_MAP."
+                    f"Add it to AAP_TEMPLATE_MAP in the ConfigMap: "
+                    f'e.g. AAP_TEMPLATE_MAP: \'{{"DEVICE_DOWN": 19, "{incident_type}": <id>}}\''
                 )
             }
 
@@ -48,11 +46,12 @@ class RemediationAgent:
             "network_id":    network_id,
             "network_name":  network_name,
             "incident_id":   str(incident.get("_id", "")),
-            "snow_ticket":   incident.get("snow_ticket", {}).get("ticket_number", "")
+            "snow_ticket":   incident.get("snow_ticket_id", ""),
+            "meraki_api_key": "86d9dbe8fb3c0adf0399fb1a697a6baa6ff21da8"
         }
 
         logger.info(
-            f"Launching AAP job template {template_id} "
+            f"Launching AAP template {template_id} "
             f"for {incident_type} on {device_name}"
         )
 
