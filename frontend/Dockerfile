@@ -16,7 +16,7 @@ ENV VITE_API_BASE_URL=$VITE_API_BASE_URL \
     VITE_NETWORK_ID=$VITE_NETWORK_ID
 
 COPY . .
-RUN npm run build
+RUN NODE_OPTIONS="--max-old-space-size=2048" npm run build
 
 FROM nginx:1.27-alpine AS runtime
 
