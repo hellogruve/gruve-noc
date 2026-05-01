@@ -264,11 +264,11 @@ export default function RemediationPanel({ incident, api }) {
                 {jobStatus.status === 'eda_triggered' && (
                   <div style={{ marginTop:8 }}>
                     
-                      href="https://aap-controller-aap.apps.ocp-mig2.gruveai.com/#/workflow-approvals"
+                    <a href="https://aap-controller-aap.apps.ocp-mig2.gruveai.com/#/workflow-approvals"
                       target="_blank" rel="noreferrer"
                       style={{ fontSize:11, color:'var(--gruve-green)', textDecoration:'none', display:'flex', alignItems:'center', gap:4 }}
                     >
-                      <ExternalLink size={11}/> Approve in AAP Controller →
+                      <ExternalLink size={11}/> {'Approve in AAP Controller →'}
                     </a>
                   </div>
                 )}
