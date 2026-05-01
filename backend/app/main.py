@@ -5,6 +5,7 @@ main.py — Gruve NOC Agent Backend
 import asyncio
 import logging
 import os
+import json
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -15,6 +16,8 @@ from app.api.health import router as health_router
 from app.api.routes import router as api_router
 from app.services.mongo import mongo_service
 from app.agents.incident import incident_agent
+from app.agents.snmp_agent import snmp_agent
+from app.services.snmp_receiver import start_snmp_receiver
 
 logging.basicConfig(
     level=logging.INFO,
@@ -25,16 +28,30 @@ logger = logging.getLogger("gruve.noc")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Gruve NOC Agent starting up...")
+    logger.info("🚀 Gruve NOC Agent starting up...")
+
     await mongo_service.connect()
-    logger.info("MongoDB connected")
-    poll_task = asyncio.create_task(incident_agent.polling_loop())
-    logger.info(f"Meraki polling started (interval: {settings.poll_interval_seconds}s)")
+    logger.info("✅ MongoDB connected")
+
+    # Start Meraki polling
+    meraki_task = asyncio.create_task(incident_agent.polling_loop())
+    logger.info(f"✅ Meraki polling started (interval: {settings.poll_interval_seconds}s)")
+
+    # Start SNMP trap receiver
+    snmp_task = asyncio.create_task(
+        start_snmp_receiver(snmp_agent.process_trap)
+    )
+    logger.info("✅ SNMP trap receiver started on UDP 162")
+
+    logger.info("✅ Gruve NOC Agent ready")
+
     yield
+
     logger.info("Gruve NOC Agent shutting down...")
-    poll_task.cancel()
+    meraki_task.cancel()
+    snmp_task.cancel()
     try:
-        await poll_task
+        await asyncio.gather(meraki_task, snmp_task, return_exceptions=True)
     except asyncio.CancelledError:
         pass
     await mongo_service.disconnect()
@@ -49,12 +66,11 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# Read CORS origins directly from env — bypass pydantic parsing
+# CORS
 _cors_raw = os.environ.get("CORS_ALLOWED_ORIGINS", "*")
 if _cors_raw.strip() == "*":
     _cors_origins = ["*"]
 elif _cors_raw.strip().startswith("["):
-    import json
     try:
         _cors_origins = json.loads(_cors_raw)
     except Exception:
@@ -74,11 +90,3 @@ app.add_middleware(
 
 app.include_router(health_router)
 app.include_router(api_router, prefix="/api/v1")
-# updated
-# test trigger
-# trigger
-# retry
-# trigger
-# retry docker build
-# test docker daemon
-# trigger
