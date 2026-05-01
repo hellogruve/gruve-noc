@@ -1,7 +1,7 @@
 # =============================================================================
 # Gruve AI NOC Agent — Frontend
 # =============================================================================
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 
 LABEL org.opencontainers.image.title="Gruve NOC Agent Frontend" \
       org.opencontainers.image.vendor="Gruve AI"
