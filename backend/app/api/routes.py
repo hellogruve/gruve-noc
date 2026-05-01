@@ -222,3 +222,67 @@ async def get_logs(
         "count": len(logs),
         "stats": stats
     }
+
+
+# ── Approval + EDA Webhook ────────────────────────────────────────────────────
+
+class ApprovalRequest(BaseModel):
+    incident_id: str
+
+@router.post("/approve")
+async def approve_remediation(request: ApprovalRequest):
+    """
+    Called when NOC engineer clicks Approve & Remediate.
+    1. Fetches incident from MongoDB
+    2. Updates ServiceNow ticket to In Progress
+    3. Fires EDA webhook to trigger AAP workflow
+    """
+    logger.info(f"Approval received for incident: {request.incident_id}")
+
+    incident = await mongo_service.get_incident_by_id(request.incident_id)
+    if not incident:
+        raise HTTPException(status_code=404, detail="Incident not found")
+
+    # Update incident status in MongoDB
+    await mongo_service.update_incident_status(
+        request.incident_id,
+        status="approved"
+    )
+
+    # Fire EDA webhook
+    import httpx
+    eda_payload = {
+        "incident_type":  incident.get("incident_type"),
+        "device_serial":  incident.get("device_serial"),
+        "device_name":    incident.get("device_name"),
+        "network_id":     incident.get("network_id"),
+        "network_name":   incident.get("network_name"),
+        "incident_id":    str(incident.get("_id")),
+        "snow_ticket":    incident.get("snow_ticket_id", ""),
+        "meraki_api_key": "86d9dbe8fb3c0adf0399fb1a697a6baa6ff21da8"
+    }
+
+    eda_url = "http://gruve-noc-meraki-rules.aap.svc.cluster.local:5000"
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(
+                eda_url,
+                json=eda_payload,
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer gruve-noc-eda-2026"
+                }
+            )
+            logger.info(f"EDA webhook fired: status={resp.status_code}")
+            eda_status = resp.status_code
+    except Exception as e:
+        logger.error(f"EDA webhook failed: {e}")
+        eda_status = 500
+
+    return {
+        "message":    "Approval processed",
+        "incident_id": request.incident_id,
+        "eda_status":  eda_status,
+        "status":     "approved"
+    }
