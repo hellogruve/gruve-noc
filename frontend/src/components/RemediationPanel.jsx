@@ -1,18 +1,38 @@
-import { useState, useEffect } from 'react'
-import { Zap, CheckCircle, XCircle, Loader, ExternalLink, AlertTriangle, ShieldCheck } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { Zap, CheckCircle, XCircle, Loader, ExternalLink, AlertTriangle, ShieldCheck, Clock } from 'lucide-react'
 
 export default function RemediationPanel({ incident, api }) {
-  const [jobStatus, setJobStatus] = useState(null)
-  const [running,   setRunning]   = useState(false)
-  const [approved,  setApproved]  = useState(false)
-  const [pollTimer, setPollTimer] = useState(null)
+  const [jobStatus,  setJobStatus]  = useState(null)
+  const [running,    setRunning]    = useState(false)
+  const [approved,   setApproved]   = useState(false)
+  const [incStatus,  setIncStatus]  = useState(incident?.status)
+  const pollRef = useRef(null)
 
   useEffect(() => {
     setJobStatus(null)
     setRunning(false)
     setApproved(false)
-    if (pollTimer) { clearInterval(pollTimer); setPollTimer(null) }
+    setIncStatus(incident?.status)
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
   }, [incident?._id])
+
+  // Poll incident status after approval
+  const startPolling = (incidentId) => {
+    if (pollRef.current) clearInterval(pollRef.current)
+    pollRef.current = setInterval(async () => {
+      try {
+        const r = await fetch(`${api}/api/v1/incidents/${incidentId}`)
+        const d = await r.json()
+        setIncStatus(d.status)
+        if (d.status === 'resolved') {
+          clearInterval(pollRef.current)
+          pollRef.current = null
+          setJobStatus({ status: 'resolved' })
+          setRunning(false)
+        }
+      } catch {}
+    }, 10000)
+  }
 
   const handleApprove = async () => {
     if (!incident) return
@@ -30,12 +50,13 @@ export default function RemediationPanel({ incident, api }) {
         status: 'eda_triggered',
         eda_status: d.eda_status,
         message: d.eda_status === 200
-          ? 'EDA webhook fired — AAP workflow starting...'
+          ? 'EDA webhook fired — AAP workflow starting. Approve in AAP UI to continue.'
           : `EDA webhook returned ${d.eda_status} — check EDA logs`
       })
+      // Start polling for resolution
+      startPolling(incident._id)
     } catch (e) {
       setJobStatus({ status: 'error', message: e.message })
-    } finally {
       setRunning(false)
     }
   }
@@ -64,7 +85,6 @@ export default function RemediationPanel({ incident, api }) {
             }
           } catch {}
         }, 10000)
-        setPollTimer(t)
       } else {
         setJobStatus({ status: 'not_configured', message: d.message || 'No AAP template configured.' })
         setRunning(false)
@@ -76,10 +96,10 @@ export default function RemediationPanel({ incident, api }) {
   }
 
   const SEVERITY = {
-    DEVICE_DOWN:     { label:'Critical', cls:'critical' },
-    INTERNET_DOWN:   { label:'Critical', cls:'critical' },
-    DEVICE_STALE:    { label:'Warning',  cls:'warning'  },
-    DEVICE_RECOVERED:{ label:'Resolved', cls:'ok'       },
+    DEVICE_DOWN:      { label:'Critical', cls:'critical' },
+    INTERNET_DOWN:    { label:'Critical', cls:'critical' },
+    DEVICE_STALE:     { label:'Warning',  cls:'warning'  },
+    DEVICE_RECOVERED: { label:'Resolved', cls:'ok'       },
   }
 
   if (!incident) {
@@ -94,7 +114,33 @@ export default function RemediationPanel({ incident, api }) {
     )
   }
 
-  const severity = SEVERITY[incident.incident_type] || { label:'Unknown', cls:'unknown' }
+  const severity  = SEVERITY[incident.incident_type] || { label:'Unknown', cls:'unknown' }
+  const isResolved = incStatus === 'resolved'
+
+  // Flow step states
+  const step1Done = true
+  const step2Done = approved || isResolved
+  const step3Done = isResolved
+  const step4Done = isResolved
+
+  const StepPill = ({ num, label, done, active }) => (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 6,
+      padding: '4px 12px', borderRadius: 20,
+      background: done ? 'rgba(0,212,106,0.12)' : active ? 'rgba(59,139,222,0.12)' : 'var(--bg-elevated)',
+      border: `1px solid ${done ? 'rgba(0,212,106,0.4)' : active ? 'rgba(59,139,222,0.4)' : 'var(--bg-border)'}`,
+      fontSize: 11,
+      color: done ? 'var(--status-ok)' : active ? '#3B8BDE' : 'var(--text-muted)'
+    }}>
+      {done
+        ? <CheckCircle size={11}/>
+        : active
+          ? <Loader size={11} style={{ animation:'spin 1s linear infinite' }}/>
+          : <Clock size={11}/>
+      }
+      {num}. {label}
+    </div>
+  )
 
   return (
     <div style={{ padding:28, maxWidth:900 }}>
@@ -116,12 +162,24 @@ export default function RemediationPanel({ incident, api }) {
               {incident.network_name}
             </div>
           </div>
-          <span className={`badge ${severity.cls}`}>{severity.label}</span>
+          <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+            <span className={`badge ${isResolved ? 'ok' : severity.cls}`}>
+              {isResolved ? 'Resolved' : severity.label}
+            </span>
+            <span style={{
+              fontSize:11, padding:'2px 10px', borderRadius:10,
+              background: isResolved ? 'rgba(0,212,106,0.1)' : 'rgba(255,183,0,0.1)',
+              color: isResolved ? 'var(--status-ok)' : 'var(--status-warning)',
+              border: `1px solid ${isResolved ? 'rgba(0,212,106,0.3)' : 'rgba(255,183,0,0.3)'}`
+            }}>
+              {incStatus}
+            </span>
+          </div>
         </div>
         <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12 }}>
           {[
             { label:'Incident type', value: incident.incident_type?.replace(/_/g,' ') },
-            { label:'Status',        value: incident.status },
+            { label:'Status',        value: incStatus },
             { label:'Detected',      value: incident.created_at ? new Date(incident.created_at).toLocaleString() : '—' },
             { label:'Device serial', value: incident.device_serial },
             { label:'Network ID',    value: incident.network_id || '—' },
@@ -166,50 +224,57 @@ export default function RemediationPanel({ incident, api }) {
         )}
       </div>
 
-      {/* Approval + Remediation */}
+      {/* Remediation Actions */}
       <div className="card">
         <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:16 }}>
-          <div style={{ width:6, height:6, borderRadius:'50%', background:'var(--status-warning)' }}/>
+          <div style={{ width:6, height:6, borderRadius:'50%',
+            background: isResolved ? 'var(--status-ok)' : 'var(--status-warning)' }}/>
           <span style={{ fontWeight:500, fontSize:14 }}>Remediation Actions</span>
         </div>
 
-        {/* Flow indicator */}
-        <div style={{
-          display:'flex', alignItems:'center', gap:8,
-          marginBottom:20, fontSize:11, color:'var(--text-muted)'
-        }}>
-          <span style={{ padding:'3px 10px', borderRadius:10, background:'var(--bg-elevated)', border:'1px solid var(--bg-border)' }}>
-            1. Review AI Plan
-          </span>
-          <span>→</span>
-          <span style={{ padding:'3px 10px', borderRadius:10,
-            background: approved ? 'rgba(0,212,106,0.1)' : 'var(--bg-elevated)',
-            border: approved ? '1px solid rgba(0,212,106,0.3)' : '1px solid var(--bg-border)',
-            color: approved ? 'var(--status-ok)' : 'var(--text-muted)'
-          }}>
-            2. Approve (NOC Engineer)
-          </span>
-          <span>→</span>
-          <span style={{ padding:'3px 10px', borderRadius:10, background:'var(--bg-elevated)', border:'1px solid var(--bg-border)' }}>
-            3. EDA → AAP Approval → Execute
-          </span>
-          <span>→</span>
-          <span style={{ padding:'3px 10px', borderRadius:10, background:'var(--bg-elevated)', border:'1px solid var(--bg-border)' }}>
-            4. ServiceNow Closed
-          </span>
+        {/* Flow steps */}
+        <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:20, flexWrap:'wrap' }}>
+          <StepPill num={1} label="Review AI Plan"          done={step1Done} active={false}/>
+          <span style={{ color:'var(--text-muted)', fontSize:12 }}>→</span>
+          <StepPill num={2} label="Approve (NOC Engineer)"  done={step2Done} active={!step2Done}/>
+          <span style={{ color:'var(--text-muted)', fontSize:12 }}>→</span>
+          <StepPill num={3} label="EDA → AAP → Execute"    done={step3Done} active={step2Done && !step3Done}/>
+          <span style={{ color:'var(--text-muted)', fontSize:12 }}>→</span>
+          <StepPill num={4} label="ServiceNow Closed"       done={step4Done} active={step3Done && !step4Done}/>
         </div>
 
-        {/* Action buttons */}
-        {!jobStatus && (
+        {/* Resolved state */}
+        {isResolved && (
+          <div style={{
+            display:'flex', alignItems:'center', gap:12,
+            padding:'16px 20px',
+            background:'rgba(0,212,106,0.08)',
+            borderRadius:'var(--radius-sm)',
+            border:'1px solid rgba(0,212,106,0.3)'
+          }}>
+            <CheckCircle size={24} color="var(--status-ok)"/>
+            <div>
+              <div style={{ fontSize:14, fontWeight:600, color:'var(--status-ok)' }}>
+                Remediation Complete
+              </div>
+              <div style={{ fontSize:12, color:'var(--text-secondary)', marginTop:2 }}>
+                Device remediated · ServiceNow ticket closed · Incident resolved
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Action buttons — only show if not resolved */}
+        {!isResolved && !jobStatus && (
           <div style={{ display:'flex', gap:12, alignItems:'center' }}>
             <button
               className="btn btn-primary"
               onClick={handleApprove}
-              disabled={running}
+              disabled={running || incStatus === 'approved'}
               style={{ gap:8 }}
             >
               <ShieldCheck size={15}/>
-              Approve and Remediate via EDA
+              {incStatus === 'approved' ? 'Waiting for AAP Approval...' : 'Approve and Remediate via EDA'}
             </button>
             <div style={{ width:1, height:30, background:'var(--bg-border)' }}/>
             <button
@@ -220,14 +285,11 @@ export default function RemediationPanel({ incident, api }) {
             >
               <Zap size={14}/> Direct AAP
             </button>
-            <span style={{ fontSize:11, color:'var(--text-muted)' }}>
-              or trigger AAP directly without EDA
-            </span>
           </div>
         )}
 
         {/* Status display */}
-        {jobStatus && (
+        {!isResolved && jobStatus && (
           <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
             <div style={{
               display:'flex', alignItems:'center', gap:12,
@@ -237,7 +299,7 @@ export default function RemediationPanel({ incident, api }) {
               border:'1px solid var(--bg-border)'
             }}>
               {jobStatus.status === 'approving'     && <Loader size={16} color="var(--status-warning)" style={{animation:'spin 1s linear infinite'}}/>}
-              {jobStatus.status === 'eda_triggered' && <CheckCircle size={16} color="var(--status-ok)"/>}
+              {jobStatus.status === 'eda_triggered' && <Loader size={16} color="var(--status-info)"    style={{animation:'spin 1s linear infinite'}}/>}
               {jobStatus.status === 'launching'     && <Loader size={16} color="var(--status-warning)" style={{animation:'spin 1s linear infinite'}}/>}
               {jobStatus.status === 'running'       && <Loader size={16} color="var(--status-info)"    style={{animation:'spin 1s linear infinite'}}/>}
               {jobStatus.status === 'successful'    && <CheckCircle size={16} color="var(--status-ok)"/>}
@@ -248,7 +310,7 @@ export default function RemediationPanel({ incident, api }) {
               <div style={{ flex:1 }}>
                 <div style={{ fontSize:13, fontWeight:500 }}>
                   {jobStatus.status === 'approving'      && 'Processing approval...'}
-                  {jobStatus.status === 'eda_triggered'  && 'EDA webhook fired — waiting for AAP approval in AAP UI'}
+                  {jobStatus.status === 'eda_triggered'  && 'EDA triggered — waiting for senior approval in AAP UI'}
                   {jobStatus.status === 'launching'      && 'Launching AAP job...'}
                   {jobStatus.status === 'running'        && `Job #${jobStatus.job_id} running`}
                   {jobStatus.status === 'successful'     && `Job #${jobStatus.job_id} completed successfully`}
@@ -262,14 +324,17 @@ export default function RemediationPanel({ incident, api }) {
                   </div>
                 )}
                 {jobStatus.status === 'eda_triggered' && (
-                  <div style={{ marginTop:8 }}>
+                  <div style={{ marginTop:8, display:'flex', gap:12 }}>
                     
-                    <a href="https://aap-controller-aap.apps.ocp-mig2.gruveai.com/#/workflow-approvals"
+                      href="https://aap-controller-aap.apps.ocp-mig2.gruveai.com/#/workflow-approvals"
                       target="_blank" rel="noreferrer"
                       style={{ fontSize:11, color:'var(--gruve-green)', textDecoration:'none', display:'flex', alignItems:'center', gap:4 }}
                     >
-                      <ExternalLink size={11}/> {'Approve in AAP Controller →'}
+                      <ExternalLink size={11}/> Approve in AAP →
                     </a>
+                    <span style={{ fontSize:11, color:'var(--text-muted)' }}>
+                      Polling for completion every 10s...
+                    </span>
                   </div>
                 )}
               </div>
@@ -282,7 +347,7 @@ export default function RemediationPanel({ incident, api }) {
               )}
             </div>
 
-            {['successful','failed','error','not_configured','eda_triggered'].includes(jobStatus.status) && (
+            {['failed','error','not_configured'].includes(jobStatus.status) && (
               <button
                 className="btn btn-secondary"
                 style={{ alignSelf:'flex-start' }}
