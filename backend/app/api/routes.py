@@ -286,3 +286,37 @@ async def approve_remediation(request: ApprovalRequest):
         "eda_status":  eda_status,
         "status":     "approved"
     }
+
+
+# ── Resolve Incident (called by AAP after remediation) ────────────────────────
+
+class ResolveRequest(BaseModel):
+    incident_id: str
+    status: str = "resolved"
+    message: str = "Resolved by AAP workflow"
+
+@router.post("/resolve")
+async def resolve_incident(request: ResolveRequest):
+    """
+    Called by AAP noc-resolve-incident playbook after workflow completes.
+    Updates incident status to resolved in MongoDB.
+    """
+    logger.info(f"Resolve received for incident: {request.incident_id}")
+
+    incident = await mongo_service.get_incident_by_id(request.incident_id)
+    if not incident:
+        # Return 200 anyway so AAP playbook doesn't fail
+        logger.warning(f"Incident {request.incident_id} not found — may already be resolved")
+        return {"message": "Incident not found", "incident_id": request.incident_id}
+
+    await mongo_service.update_incident_status(
+        request.incident_id,
+        status="resolved"
+    )
+
+    logger.info(f"Incident {request.incident_id} marked as resolved")
+    return {
+        "message": "Incident resolved",
+        "incident_id": request.incident_id,
+        "status": "resolved"
+    }
