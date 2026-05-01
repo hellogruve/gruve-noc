@@ -85,3 +85,6 @@ spec:
   tls:
     termination: edge
     insecureEdgeTerminationPolicy: Redirect
+        - containerPort: 1162
+          protocol: UDP
+          name: snmp-trap
