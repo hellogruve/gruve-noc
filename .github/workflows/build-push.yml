@@ -114,4 +114,4 @@ jobs:
           git add k8s/
           git diff --staged --quiet || \
             git commit -m "ci: update images to ${{ steps.tag.outputs.TAG }}"
-          git push
+          git push origin main
