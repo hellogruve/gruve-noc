@@ -4,20 +4,20 @@
   "description": "Gruve Autonomous AI NOC Agent — Frontend Dashboard",
   "private": true,
   "scripts": {
-    "dev":     "vite",
-    "build":   "vite build",
+    "dev": "vite",
+    "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
-    "react":             "^18.3.1",
-    "react-dom":         "^18.3.1",
-    "react-router-dom":  "^6.26.2",
-    "lucide-react":      "^0.441.0"
+    "lucide-react": "^0.441.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.2"
   },
   "devDependencies": {
-    "@types/react":          "^18.3.5",
-    "@types/react-dom":      "^18.3.0",
-    "@vitejs/plugin-react":  "^4.3.1",
-    "vite":                  "^5.4.3"
+    "@types/react": "^18.3.5",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "vite": "^5.4.3"
   }
 }
