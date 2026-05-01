@@ -22,7 +22,11 @@ spec:
         image: registry.gruveai.com/gruve-noc/noc-agent-backend:v1.0.7
         ports:
         - containerPort: 8000
+          protocol: TCP
           name: http
+        - containerPort: 1162
+          protocol: UDP
+          name: snmp-trap
         envFrom:
         - configMapRef:
             name: noc-agent-be-config
@@ -42,13 +46,6 @@ spec:
           initialDelaySeconds: 15
           periodSeconds: 15
           failureThreshold: 3
-        startupProbe:
-          httpGet:
-            path: /livez
-            port: 8000
-          initialDelaySeconds: 10
-          periodSeconds: 10
-          failureThreshold: 18
         resources:
           requests:
             cpu: 250m
@@ -68,7 +65,12 @@ spec:
   ports:
   - port: 8000
     targetPort: 8000
+    protocol: TCP
     name: http
+  - port: 1162
+    targetPort: 1162
+    protocol: UDP
+    name: snmp-trap
 ---
 apiVersion: route.openshift.io/v1
 kind: Route
@@ -85,6 +87,3 @@ spec:
   tls:
     termination: edge
     insecureEdgeTerminationPolicy: Redirect
-        - containerPort: 1162
-          protocol: UDP
-          name: snmp-trap
