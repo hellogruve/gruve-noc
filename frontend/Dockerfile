@@ -8,7 +8,7 @@ LABEL org.opencontainers.image.title="Gruve NOC Agent Frontend" \
 
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci --prefer-offline
+RUN npm ci --prefer-offline --legacy-peer-deps
 
 ARG VITE_API_BASE_URL=
 ARG VITE_NETWORK_ID=
