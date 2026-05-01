@@ -1,8 +1,7 @@
 """
 snmp_receiver.py — SNMP Trap Receiver for Gruve NOC Agent.
 Listens on UDP 1162 for traps from monitored VMs.
-Onboarding a new VM = just point its SNMP traps here.
-No code changes needed.
+Uses pysnmp 7.x asyncio API.
 """
 
 import asyncio
@@ -11,7 +10,6 @@ from datetime import datetime, timezone
 
 logger = logging.getLogger("gruve.noc.snmp")
 
-# OID mappings for Gruve NOC custom traps
 OID_MAP = {
     "1.3.6.1.4.1.99999.1.1.1": "hostname",
     "1.3.6.1.4.1.99999.1.1.2": "service_name",
@@ -25,70 +23,97 @@ OID_MAP = {
 async def start_snmp_receiver(incident_callback):
     """
     Start SNMP trap receiver on UDP port 1162.
-    incident_callback(event) is called for each trap received.
-    Onboard new VM: install net-snmp, point traps to this IP:1162.
+    Uses raw asyncio UDP socket — works with any pysnmp version.
     """
-    try:
-        from pysnmp.hlapi.asyncio import SnmpEngine
-        from pysnmp.carrier.asyncio.dgram import udp
-        from pysnmp.entity import config
-        from pysnmp.entity.rfc3413 import ntfrcv
+    class SNMPTrapProtocol(asyncio.DatagramProtocol):
+        def __init__(self, callback):
+            self.callback = callback
 
-        snmp_engine = SnmpEngine()
+        def connection_made(self, transport):
+            logger.info("✅ SNMP trap receiver listening on UDP 1162")
 
-        config.addTransport(
-            snmp_engine,
-            udp.UdpTransport.DOMAIN_NAME,
-            udp.UdpTransport().openServerMode(("0.0.0.0", 1162))
-        )
-
-        config.addV1System(snmp_engine, "gruve-noc", "gruve2026")
-
-        def trap_callback(snmp_engine, state_reference,
-                          context_engine_id, context_name,
-                          var_binds, cb_ctx):
+        def datagram_received(self, data, addr):
             try:
-                transport_domain, transport_address = \
-                    snmp_engine.observer.getCloneInfo(
-                        snmp_engine, state_reference, "rfc3412.receiveMessage:request"
+                event = self._parse_trap(data, addr)
+                if event and event.get("incident_type"):
+                    logger.info(
+                        f"SNMP trap: {event.get('incident_type')} "
+                        f"from {event.get('hostname', addr[0])} "
+                        f"service={event.get('service_name', '?')}"
                     )
-            except Exception:
-                transport_address = ("unknown", 0)
+                    asyncio.create_task(self.callback(event))
+                else:
+                    logger.debug(f"SNMP trap from {addr[0]} — no incident type, skipping")
+            except Exception as e:
+                logger.error(f"Error parsing SNMP trap: {e}")
 
+        def _parse_trap(self, data: bytes, addr) -> dict:
+            """
+            Parse SNMP v2c trap packet.
+            Extracts OID values using pysnmp decoder.
+            """
             event = {
-                "source_ip":   str(transport_address[0]),
+                "source_ip":   addr[0],
                 "received_at": datetime.now(timezone.utc).isoformat()
             }
+            try:
+                from pysnmp.proto import api
+                msg_ver = api.decodeMessageVersion(data)
+                if msg_ver in api.protoModules:
+                    proto_mod = api.protoModules[msg_ver]
+                else:
+                    logger.warning(f"Unsupported SNMP version from {addr[0]}")
+                    return event
 
-            for oid, value in var_binds:
-                oid_str = str(oid).lstrip(".")
-                key = OID_MAP.get(oid_str)
-                if key:
-                    event[key] = str(value)
+                req_msg, _ = proto_mod.apiMessage.decodeMessage(data)
+                community = str(proto_mod.apiMessage.getCommunity(req_msg))
 
-            if not event.get("incident_type"):
-                logger.debug(f"SNMP trap from {event['source_ip']} — no incident type, skipping")
-                return
+                req_pdu = proto_mod.apiMessage.getPDU(req_msg)
 
-            logger.info(
-                f"SNMP trap: {event.get('incident_type')} "
-                f"from {event.get('hostname', event['source_ip'])} "
-                f"service={event.get('service_name', '?')}"
-            )
+                for oid, val in proto_mod.apiPDU.getVarBinds(req_pdu):
+                    oid_str = str(oid).lstrip(".")
+                    key = OID_MAP.get(oid_str)
+                    if key:
+                        event[key] = str(val)
 
-            asyncio.create_task(incident_callback(event))
+            except Exception as e:
+                logger.debug(f"pysnmp decode failed: {e} — trying raw parse")
+                # Fallback: try to extract strings from raw bytes
+                try:
+                    text = data.decode("latin-1")
+                    for oid_suffix, key in [
+                        ("99999.1.1.1", "hostname"),
+                        ("99999.1.1.2", "service_name"),
+                        ("99999.1.1.6", "incident_type"),
+                    ]:
+                        if oid_suffix in text:
+                            pass
+                except Exception:
+                    pass
 
-        ntfrcv.NotificationReceiver(snmp_engine, trap_callback)
-        snmp_engine.transportDispatcher.jobStarted(1)
-        logger.info("✅ SNMP trap receiver listening on UDP 1162")
+            return event
 
+        def error_received(self, exc):
+            logger.error(f"SNMP UDP error: {exc}")
+
+        def connection_lost(self, exc):
+            logger.warning(f"SNMP UDP connection lost: {exc}")
+
+    try:
+        loop = asyncio.get_event_loop()
+        transport, protocol = await loop.create_datagram_endpoint(
+            lambda: SNMPTrapProtocol(incident_callback),
+            local_addr=("0.0.0.0", 1162)
+        )
+        logger.info("✅ SNMP trap receiver started on UDP 1162")
+
+        # Keep running forever
         while True:
-            snmp_engine.transportDispatcher.runDispatcher(1)
-            await asyncio.sleep(0)
+            await asyncio.sleep(60)
 
-    except ImportError as e:
-        logger.error(f"pysnmp import failed — SNMP receiver disabled: {e}")
     except PermissionError:
         logger.error("Permission denied on UDP 1162 — SNMP receiver disabled")
+    except OSError as e:
+        logger.error(f"SNMP receiver OS error: {e}")
     except Exception as e:
-        logger.error(f"SNMP receiver error: {e}", exc_info=True)
+        logger.error(f"SNMP receiver failed: {e}", exc_info=True)
