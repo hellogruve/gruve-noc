@@ -9,7 +9,6 @@ from datetime import datetime, timezone
 from app.services.mongo import mongo_service
 from app.services.llm import llm_service
 from app.services.qdrant_svc import qdrant_service
-from app.services.servicenow import snow_service
 
 logger = logging.getLogger("gruve.noc.snmp_agent")
 
@@ -77,28 +76,7 @@ class SNMPAgent:
         incident_id = await mongo_service.save_incident(incident)
         logger.info(f"SNMP incident created: {incident_id}")
 
-        # Create ServiceNow ticket
-        snow_result = await snow_service.create_incident(
-            incident_type=incident_type,
-            short_description=f"[Gruve NOC] {incident_type}: {service_name} on {hostname}",
-            description=(
-                f"SNMP trap received — service down detected.\n"
-                f"Host: {hostname} ({host_ip})\n"
-                f"Service: {service_name}\n"
-                f"Severity: {severity}\n"
-                f"Detected at: {datetime.now(timezone.utc).isoformat()}"
-            ),
-            device_name=hostname,
-            network_name="NJ Infrastructure"
-        )
-
-        if snow_result:
-            await mongo_service.update_incident_status(
-                incident_id=incident_id,
-                status="open",
-                snow_ticket_id=snow_result.get("ticket_number")
-            )
-            logger.info(f"SNMP incident {incident_id} → ServiceNow {snow_result.get('ticket_number')}")
+        logger.info(f"SNMP incident {incident_id} created — ServiceNow ticket will be created by AAP workflow after approval")
 
     async def _handle_recovery(self, hostname: str, service_name: str):
         """Mark open incidents as resolved when service comes back up."""
