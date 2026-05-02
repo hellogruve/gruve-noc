@@ -251,28 +251,58 @@ async def approve_remediation(request: ApprovalRequest):
 
     # Fire EDA webhook
     import httpx
-    eda_payload = {
-        "incident_type":  incident.get("incident_type"),
-        "device_serial":  incident.get("device_serial"),
-        "device_name":    incident.get("device_name"),
-        "network_id":     incident.get("network_id"),
-        "network_name":   incident.get("network_name"),
-        "incident_id":    str(incident.get("_id")),
-        "snow_ticket":    incident.get("snow_ticket_id", ""),
-        "meraki_api_key": "86d9dbe8fb3c0adf0399fb1a697a6baa6ff21da8"
-    }
+    incident_type = incident.get("incident_type")
+    vm_incident_types = ["VM_SERVICE_DOWN", "VM_SERVICE_RECOVERED", "DISK_CRITICAL"]
 
-    eda_url = "http://gruve-noc-meraki-rules.aap.svc.cluster.local:5000"
+    if incident_type in vm_incident_types:
+        # RHEL EDA expects this payload format
+        eda_payload = {
+            "host":            incident.get("device_name"),
+            "issue":           "service_down",
+            "service":         incident.get("service_name", "haproxy"),
+            "severity":        incident.get("severity", "critical"),
+            "incident_id":     str(incident.get("_id")),
+            "snow_ticket":     incident.get("snow_ticket_id", "")
+        }
+    else:
+        # Meraki EDA payload
+        eda_payload = {
+            "incident_type":  incident_type,
+            "device_serial":  incident.get("device_serial"),
+            "device_name":    incident.get("device_name"),
+            "network_id":     incident.get("network_id"),
+            "network_name":   incident.get("network_name"),
+            "incident_id":    str(incident.get("_id")),
+            "snow_ticket":    incident.get("snow_ticket_id", ""),
+            "meraki_api_key": "86d9dbe8fb3c0adf0399fb1a697a6baa6ff21da8"
+        }
+
+    # Route to correct EDA based on incident type
+    vm_incident_types = ["VM_SERVICE_DOWN", "VM_SERVICE_RECOVERED", "DISK_CRITICAL"]
+    if incident.get("incident_type") in vm_incident_types:
+        # RHEL/VM incidents → RHEL Event Listener EDA
+        eda_url = "https://aap-aap.apps.ocp-mig2.gruveai.com/eda-event-streams/api/eda/v1/external_event_stream/b9ee6484-eaac-4493-9cfe-734e8bd97621/post/"
+        eda_auth = ("admin", "redhat123")
+        logger.info(f"Routing VM incident to RHEL EDA webhook")
+    else:
+        # Meraki incidents → Meraki NOC rules EDA
+        eda_url = "http://gruve-noc-meraki-rules.aap.svc.cluster.local:5000"
+        eda_auth = None
+        logger.info(f"Routing Meraki incident to Meraki EDA webhook")
 
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=10.0, verify=False) as client:
+            headers = {"Content-Type": "application/json"}
+            if eda_auth:
+                import base64
+                creds = base64.b64encode(f"{eda_auth[0]}:{eda_auth[1]}".encode()).decode()
+                headers["Authorization"] = f"Basic {creds}"
+            else:
+                headers["Authorization"] = "Bearer gruve-noc-eda-2026"
             resp = await client.post(
                 eda_url,
                 json=eda_payload,
-                headers={
-                    "Content-Type": "application/json",
-                    "Authorization": "Bearer gruve-noc-eda-2026"
-                }
+                headers=headers
             )
             logger.info(f"EDA webhook fired: status={resp.status_code}")
             eda_status = resp.status_code
