@@ -17,7 +17,7 @@ data:
   QDRANT_COLLECTION_NAME: "meraki_noc_knowledge"
   QDRANT_TIMEOUT: "30.0"
   RAG_RETRIEVAL_LIMIT: "5"
-  SNOW_INSTANCE_URL: "https://dev385032.service-now.com"
+  SNOW_INSTANCE_URL: "https://dev380179.service-now.com"
   SNOW_INCIDENT_TABLE: "incident"
   AAP_CONTROLLER_URL: "https://aap-controller-aap.apps.ocp-mig2.gruveai.com"
   AAP_VERIFY_SSL: "false"
