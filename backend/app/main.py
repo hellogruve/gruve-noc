@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.api.health import router as health_router
 from app.api.routes import router as api_router
+from app.api.ops_router import router as ops_router
 from app.services.mongo import mongo_service
 from app.agents.incident import incident_agent
 from app.agents.snmp_agent import snmp_agent
@@ -90,3 +91,4 @@ app.add_middleware(
 
 app.include_router(health_router)
 app.include_router(api_router, prefix="/api/v1")
+app.include_router(ops_router, prefix="/api/v1")
