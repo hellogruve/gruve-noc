@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
-import { Activity, MessageSquare, Zap, Bell, Map, ScrollText } from 'lucide-react'
+import { Activity, MessageSquare, Zap, Bell, Map, ScrollText, Terminal } from 'lucide-react'
 import Dashboard from './components/Dashboard.jsx'
 import IncidentList from './components/IncidentList.jsx'
 import ChatBot from './components/ChatBot.jsx'
 import RemediationPanel from './components/RemediationPanel.jsx'
 import DeviceMap from './components/DeviceMap.jsx'
 import EventLogs from './components/EventLogs.jsx'
+import OpsConsole from './components/OpsConsole.jsx'
 import gruveLogo from './assets/gruve-logo.png'
 
 const API = import.meta.env.VITE_API_BASE_URL || ''
@@ -51,6 +52,7 @@ export default function App() {
     { id: 'eventlogs',   icon: ScrollText,    label: 'Event Logs' },
     { id: 'chatbot',     icon: MessageSquare, label: 'NOC Chat' },
     { id: 'remediation', icon: Zap,           label: 'Remediation' },
+    { id: 'opsconsole',   icon: Terminal,      label: 'Ops Console' },
   ]
 
   return (
@@ -116,6 +118,7 @@ export default function App() {
         {activeTab === 'eventlogs'   && <EventLogs/>}
         {activeTab === 'chatbot'     && <ChatBot api={API}/>}
         {activeTab === 'remediation' && <RemediationPanel incident={selectedIncident} api={API}/>}
+        {activeTab === 'opsconsole'  && <OpsConsole api={API}/>}
       </main>
     </div>
   )
