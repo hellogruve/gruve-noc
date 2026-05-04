@@ -117,47 +117,15 @@ const QUICK_JOBS = [
   { id:13, label:'Remediate Service',  icon:'⚡', color:'#DC2626' },
 ]
 
-function QuickActions({ onJobLaunch }) {
+function QuickActions({ onJobLaunch, onQuickAction }) {
   const [running, setRunning] = useState({})
-  const [lastJob, setLastJob] = useState(null)
 
-  const launch = async (job) => {
-    if (running[job.id]) return
-    setRunning(r => ({ ...r, [job.id]: 'launching' }))
-    try {
-      const resp = await fetch(`${API}/api/v1/ai/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: `launch job template id ${job.id}` })
-      })
-      const d = await resp.json()
-      const match = (d.content || '').match(/Job ID:\s*(\d+)/)
-      const jobId = match ? parseInt(match[1]) : null
-      setRunning(r => ({ ...r, [job.id]: 'launched' }))
-      setLastJob({ label: job.label, jobId, status: 'pending', color: job.color })
-      onJobLaunch && onJobLaunch(jobId)
-      // Poll for completion
-      if (jobId) {
-        const poll = setInterval(async () => {
-          const r2 = await fetch(`${API}/api/v1/ai/job/${jobId}`)
-          const d2 = await r2.json()
-          setLastJob(prev => ({ ...prev, status: d2.status }))
-          if (d2.finished) {
-            clearInterval(poll)
-            setTimeout(() => setRunning(r => { const n={...r}; delete n[job.id]; return n }), 2000)
-          }
-        }, 4000)
-      }
-    } catch(e) {
-      setRunning(r => ({ ...r, [job.id]: 'error' }))
-      setTimeout(() => setRunning(r => { const n={...r}; delete n[job.id]; return n }), 2000)
+  const launch = (job) => {
+    if (onQuickAction) {
+      onQuickAction(`launch job template id ${job.id} — ${job.label}`)
     }
   }
 
-  const statusColor = { pending:'#D97706', running:'#2563EB',
-    successful:'#16A34A', failed:'#DC2626', error:'#DC2626' }
-  const statusIcon  = { pending:'⏳', running:'🔄',
-    successful:'✅', failed:'❌', error:'❌' }
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
@@ -400,7 +368,7 @@ function SectionHeader({ title, subtitle }) {
 }
 
 // ── Main Dashboard ─────────────────────────────────────────
-export default function Dashboard({ stats, incidents, onSelect }) {
+export default function Dashboard({ stats, incidents, onSelect, onQuickAction }) {
   const [summary,  setSummary]  = useState(null)
   const [modal,    setModal]    = useState(null) // 'total'|'open'|'remediating'|'resolved'
 
@@ -505,7 +473,7 @@ export default function Dashboard({ stats, incidents, onSelect }) {
         <div className="card" style={{ padding:0 }}>
           <SectionHeader title="⚡ Quick Actions" subtitle="one-click automation"/>
           <div style={{ padding:16 }}>
-            <QuickActions onJobLaunch={(id) => console.log('launched', id)}/>
+            <QuickActions onJobLaunch={(id) => console.log('launched', id)} onQuickAction={onQuickAction}/>
           </div>
         </div>
       </div>
