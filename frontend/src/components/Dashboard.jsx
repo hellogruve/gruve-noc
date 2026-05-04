@@ -153,29 +153,7 @@ function QuickActions({ onJobLaunch, onQuickAction }) {
           </button>
         )
       })}
-      {lastJob && (
-        <div style={{ marginTop:4, padding:'8px 10px', borderRadius:8,
-          background:`${statusColor[lastJob.status] || '#6B7280'}10`,
-          border:`1px solid ${statusColor[lastJob.status] || '#6B7280'}30`,
-          fontSize:11, display:'flex', alignItems:'center', gap:6 }}>
-          <span>{statusIcon[lastJob.status] || '⏳'}</span>
-          <span style={{ color:'var(--text-secondary)', flex:1 }}>
-            {lastJob.label}
-          </span>
-          {lastJob.jobId && (
-            <span style={{ fontFamily:'monospace',
-              color: statusColor[lastJob.status] || '#6B7280' }}>
-              #{lastJob.jobId} {lastJob.status}
-            </span>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── 12h Timeline Sparkline ─────────────────────────────────
-function Timeline({ data }) {
+       {
   if (!data || data.length === 0) return (
     <div style={{ fontSize:12, color:'var(--text-muted)', textAlign:'center',
       padding:'20px 0' }}>No data</div>
