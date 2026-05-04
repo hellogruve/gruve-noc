@@ -33,10 +33,10 @@ function JobTracker({ jobId, api, onComplete }) {
   const timerRef    = useRef(null)
 
   useEffect(() => {
-    // elapsed timer
+    // elapsed timer — stops when job finishes
     timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000)
 
-    // poll every 5s
+    // poll every 5s until finished
     const poll = async () => {
       try {
         const r = await fetch(`${api}/api/v1/ai/job/${jobId}`)
@@ -45,10 +45,11 @@ function JobTracker({ jobId, api, onComplete }) {
         if (d.finished) {
           clearInterval(intervalRef.current)
           clearInterval(timerRef.current)
+          // notify parent but DON'T unmount — keep showing final state
           onComplete && onComplete(d)
         }
       } catch(e) {
-        // keep polling
+        // keep polling on transient errors
       }
     }
     poll() // immediate first call
@@ -146,8 +147,6 @@ function JobTracker({ jobId, api, onComplete }) {
 // ── Message bubble ─────────────────────────────────────────
 function Bubble({ msg, api }) {
   const isUser = msg.role === 'user'
-  const [jobDone, setJobDone] = useState(false)
-
   // extract job_id from content if this was a job launch
   const jobId = msg.jobId || null
 
@@ -199,18 +198,13 @@ function Bubble({ msg, api }) {
         }}>
           {msg.content}
 
-          {/* Live job tracker — shown for any job launch, until done */}
-          {jobId && !jobDone && (
+          {/* Live job tracker — always visible once a job is launched */}
+          {jobId && (
             <JobTracker
               jobId={jobId}
               api={api}
-              onComplete={() => setJobDone(true)}
+              onComplete={() => {}}
             />
-          )}
-          {jobId && jobDone && (
-            <div style={{ marginTop:8, fontSize:11, color:'var(--text-muted)' }}>
-              Job #{jobId} tracking complete.
-            </div>
           )}
         </div>
 
