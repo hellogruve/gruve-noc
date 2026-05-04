@@ -333,11 +333,12 @@ export default function NocAI({ api = '' }) {
       })
       const d = await resp.json()
 
-      // Extract job ID if this was a job launch — triggers live tracker
-      const jobId = (d.tool === 'job_templates_launch_create' ||
-                     d.tool === 'workflow_job_templates_launch_create')
-                    ? extractJobId(d.content || '')
-                    : null
+      // Extract job ID — detect by tool name OR by "Job launched!" in content
+      const isLaunch = d.tool === 'job_templates_launch_create' ||
+                       d.tool === 'workflow_job_templates_launch_create' ||
+                       d.tool === 'jobs_relaunch_create' ||
+                       (d.content || '').includes('Job launched!')
+      const jobId = isLaunch ? extractJobId(d.content || '') : null
 
       setMessages(prev => [...prev, {
         id:       Date.now()+1,

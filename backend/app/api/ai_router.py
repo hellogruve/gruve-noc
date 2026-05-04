@@ -9,7 +9,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import Optional
 
-from app.agents.ai_agent import process, get_aap_context, _call_tool, _parse_content, ensure_session
+from app.agents.ai_agent import process, get_aap_context, get_context, _call_tool, _parse_content, ensure_session
 from app.services.qdrant_svc import qdrant_service
 from app.services.mongo import mongo_service
 
@@ -57,7 +57,8 @@ async def chat(body: ChatRequest):
 
 @router.get("/context")
 async def context():
-    return get_aap_context()
+    from app.agents.ai_agent import get_context
+    return await get_context()
 
 
 @router.get("/job/{job_id}")
@@ -68,12 +69,19 @@ async def job_status(job_id: int):
     """
     await ensure_session()
     try:
-        # Get job status
+        # Try int id first, then string — MCP tools vary
         raw  = await _call_tool("jobs_retrieve", {"id": job_id})
         data = _parse_content(raw)
 
-        if not isinstance(data, dict):
-            return {"job_id":job_id,"status":"unknown","output":str(data),"finished":False}
+        # If no match, try with string id
+        if isinstance(data, dict) and "detail" in data and "No Job" in str(data.get("detail","")):
+            raw  = await _call_tool("jobs_retrieve", {"id": str(job_id)})
+            data = _parse_content(raw)
+
+        if not isinstance(data, dict) or "detail" in data:
+            return {"job_id":job_id,"status":"unknown",
+                    "output":f"Job #{job_id} not found. It may have completed already.",
+                    "finished":True}
 
         status     = data.get("status", "unknown")
         finished   = status in ("successful", "failed", "error", "canceled")
