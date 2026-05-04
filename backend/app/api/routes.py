@@ -57,6 +57,101 @@ async def get_incident(incident_id: str):
     return incident
 
 
+# ── Paste this block into routes.py just before the chat endpoint ──
+# Add this import at top of routes.py if not present:
+#   from datetime import datetime, timezone, timedelta
+
+@router.get("/dashboard/summary")
+async def dashboard_summary():
+    """Single endpoint for all dashboard chart data."""
+    from datetime import timedelta
+
+    # ── 1. Base stats ──────────────────────────────────────────────
+    stats = await mongo_service.get_incident_stats()
+
+    # ── 2. Device health from devices_cache ───────────────────────
+    try:
+        devices     = await mongo_service.db["devices_cache"].find({}).to_list(500)
+        total_dev   = len(devices)
+        online_dev  = sum(1 for d in devices if d.get("status") == "online")
+        offline_dev = total_dev - online_dev
+        pct_up      = round((online_dev / total_dev * 100), 1) if total_dev else 0
+    except Exception:
+        total_dev = online_dev = offline_dev = pct_up = 0
+
+    # ── 3. Incidents by type ───────────────────────────────────────
+    by_type = stats.get("by_type", {})
+
+    # ── 4. Incidents by network ────────────────────────────────────
+    try:
+        net_pipeline = [
+            {"$group": {"_id": "$network_name", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}},
+            {"$limit": 6}
+        ]
+        net_cursor = mongo_service.db["incidents"].aggregate(net_pipeline)
+        net_docs   = await net_cursor.to_list(6)
+        by_network = {d["_id"]: d["count"] for d in net_docs if d["_id"]}
+    except Exception:
+        by_network = {}
+
+    # ── 5. 12-hour timeline (hourly buckets) ──────────────────────
+    try:
+        now       = datetime.now(timezone.utc)
+        since     = now - timedelta(hours=12)
+        tl_cursor = mongo_service.db["incidents"].find(
+            {"created_at": {"$gte": since.isoformat()}},
+            {"created_at": 1, "status": 1}
+        ).sort("created_at", 1)
+        tl_docs = await tl_cursor.to_list(500)
+
+        # Build 12 hourly buckets
+        buckets = {}
+        for h in range(12):
+            slot = (since + timedelta(hours=h)).strftime("%H:00")
+            buckets[slot] = 0
+        for doc in tl_docs:
+            try:
+                ts   = doc["created_at"]
+                if isinstance(ts, str):
+                    dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+                else:
+                    dt = ts
+                slot = dt.strftime("%H:00")
+                if slot in buckets:
+                    buckets[slot] += 1
+            except Exception:
+                pass
+        timeline = [{"hour": k, "count": v} for k, v in buckets.items()]
+    except Exception:
+        timeline = []
+
+    # ── 6. Recent resolved (last 5) ───────────────────────────────
+    try:
+        res_cursor = mongo_service.db["incidents"].find(
+            {"status": "resolved"},
+            {"device_name":1,"incident_type":1,"network_name":1,
+             "created_at":1,"resolved_at":1}
+        ).sort("resolved_at", -1).limit(5)
+        recently_resolved = await res_cursor.to_list(5)
+        recently_resolved = [
+            {k: str(v) if k == "_id" else v for k, v in d.items()}
+            for d in recently_resolved
+        ]
+    except Exception:
+        recently_resolved = []
+
+    return {
+        "stats":             stats,
+        "device_health":     {"total": total_dev, "online": online_dev,
+                              "offline": offline_dev, "pct_up": pct_up},
+        "by_type":           by_type,
+        "by_network":        by_network,
+        "timeline":          timeline,
+        "recently_resolved": recently_resolved,
+    }
+
+
 # ── Chatbot ───────────────────────────────────────────────────────────────────
 
 @router.post("/chat")
