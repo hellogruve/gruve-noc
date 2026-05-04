@@ -1,10 +1,8 @@
 import { useState, useEffect } from 'react'
-import { Activity, MessageSquare, Zap, Bell, Map, ScrollText, Terminal, Bot, Menu } from 'lucide-react'
+import { Activity, MessageSquare, Zap, Bell, Terminal, Bot, Menu } from 'lucide-react'
 import Dashboard from './components/Dashboard.jsx'
 import IncidentList from './components/IncidentList.jsx'
 import RemediationPanel from './components/RemediationPanel.jsx'
-import DeviceMap from './components/DeviceMap.jsx'
-import EventLogs from './components/EventLogs.jsx'
 import NocAI from './components/NocAI.jsx'
 import gruveLogo from './assets/gruve-logo.png'
 
@@ -49,8 +47,6 @@ export default function App() {
   const NAV = [
     { id: 'dashboard',   icon: Activity,      label: 'Dashboard' },
     { id: 'incidents',   icon: Bell,          label: 'Incidents',   badge: openCount },
-    { id: 'networkmap',  icon: Map,           label: 'Network Map' },
-    { id: 'eventlogs',   icon: ScrollText,    label: 'Event Logs' },
     { id: 'nocai',      icon: Bot,           label: 'Gruve AI'  },
     { id: 'remediation', icon: Zap,           label: 'Remediation' },
   ]
@@ -126,8 +122,6 @@ export default function App() {
         </button>
         {activeTab === 'dashboard'   && <Dashboard stats={stats} incidents={incidents} onSelect={handleSelectIncident} onQuickAction={(cmd) => { setPendingCmd(cmd); setActiveTab('nocai') }}/>}
         {activeTab === 'incidents'   && <IncidentList incidents={incidents} onSelect={handleSelectIncident}/>}
-        {activeTab === 'networkmap'  && <DeviceMap/>}
-        {activeTab === 'eventlogs'   && <EventLogs/>}
         {activeTab === 'nocai'       && <NocAI api={API} pendingCmd={pendingCmd} onCmdConsumed={() => setPendingCmd(null)}/>}
         {activeTab === 'remediation' && <RemediationPanel incident={selectedIncident} api={API}/>}
       </main>

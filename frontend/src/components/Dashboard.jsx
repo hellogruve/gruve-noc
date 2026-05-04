@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { AlertTriangle, CheckCircle, Zap, Activity, X, Wifi, WifiOff, MapPin } from 'lucide-react'
+import { AlertTriangle, CheckCircle, Zap, Activity, X, Wifi, WifiOff, MapPin, RefreshCw } from 'lucide-react'
 
 const API = import.meta.env.VITE_API_BASE_URL || ''
 
@@ -54,7 +54,7 @@ function MiniMap() {
   const selGroup = data?.groups?.find(g => g.networkId === selected)
 
   return (
-    <div style={{ display:'flex', height:220, overflow:'hidden' }}>
+    <div style={{ display:'flex', height:260, overflow:'hidden' }}>
       {/* Map */}
       <div style={{ flex:1, position:'relative', overflow:'hidden',
         background:'linear-gradient(180deg,#0d1117 0%,#0a1628 100%)' }}>
@@ -414,6 +414,99 @@ function SectionHeader({ title, subtitle }) {
   )
 }
 
+
+// ── Event Log Colors ───────────────────────────────────────
+const EV_COLOR = {
+  port_status_change:      { color:'#D97706', label:'Port'     },
+  association:             { color:'#2563EB', label:'WiFi Join' },
+  disassociation:          { color:'#6B7280', label:'WiFi Leave'},
+  vpn_connectivity_change: { color:'#16A34A', label:'VPN'      },
+  security_event:          { color:'#DC2626', label:'Security'  },
+  dhcp_lease:              { color:'#2563EB', label:'DHCP'      },
+  device_packet_flood:     { color:'#DC2626', label:'Flood'     },
+  splash_auth:             { color:'#16A34A', label:'Auth'      },
+  default:                 { color:'#6B7280', label:'Event'     },
+}
+
+function InlineEventLogs() {
+  const [logs,    setLogs]    = useState([])
+  const [loading, setLoading] = useState(true)
+
+  const load = async () => {
+    try {
+      const r = await fetch(`${API}/api/v1/events?limit=50`)
+      const d = await r.json()
+      setLogs(d.events || d || [])
+    } catch(e) {}
+    finally { setLoading(false) }
+  }
+
+  useEffect(() => { load(); const t=setInterval(load,15000); return()=>clearInterval(t) }, [])
+
+  if (loading) return (
+    <div style={{ padding:40, textAlign:'center', color:'var(--text-muted)', fontSize:12 }}>
+      Loading event logs…
+    </div>
+  )
+
+  if (logs.length === 0) return (
+    <div style={{ padding:40, textAlign:'center', color:'var(--text-muted)' }}>
+      <Activity size={28} style={{ margin:'0 auto 8px', display:'block', opacity:0.3 }}/>
+      <div style={{ fontSize:12 }}>No recent events</div>
+    </div>
+  )
+
+  return (
+    <div style={{ overflowY:'auto', maxHeight:340 }}>
+      {/* Header row */}
+      <div style={{ display:'grid', gridTemplateColumns:'70px 90px 130px 1fr',
+        padding:'6px 16px', borderBottom:'2px solid var(--bg-border)',
+        fontSize:10, fontWeight:600, color:'var(--text-muted)',
+        textTransform:'uppercase', letterSpacing:'0.06em',
+        background:'var(--bg-elevated)' }}>
+        <div>Time</div>
+        <div>Type</div>
+        <div>Device</div>
+        <div>Description</div>
+      </div>
+      {logs.map((log, i) => {
+        const ev   = EV_COLOR[log.event_type] || EV_COLOR.default
+        const time = log.occurred_at
+          ? new Date(log.occurred_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'})
+          : '—'
+        return (
+          <div key={i} style={{ display:'grid',
+            gridTemplateColumns:'70px 90px 130px 1fr',
+            padding:'7px 16px', borderBottom:'1px solid var(--bg-border)',
+            alignItems:'center', fontSize:11,
+            background: i%2===0 ? 'transparent' : 'rgba(0,0,0,0.01)',
+            transition:'background 0.1s' }}
+            onMouseEnter={e => e.currentTarget.style.background='var(--bg-elevated)'}
+            onMouseLeave={e => e.currentTarget.style.background=i%2===0?'transparent':'rgba(0,0,0,0.01)'}>
+            <div style={{ fontFamily:'monospace', fontSize:10,
+              color:'var(--text-muted)' }}>{time}</div>
+            <div>
+              <span style={{ padding:'2px 6px', borderRadius:8,
+                background:`${ev.color}15`, border:`1px solid ${ev.color}35`,
+                fontSize:10, fontWeight:500, color:ev.color }}>
+                {ev.label}
+              </span>
+            </div>
+            <div style={{ color:'var(--text-primary)', fontWeight:500,
+              overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+              {log.device_name || log.device_serial || '—'}
+            </div>
+            <div style={{ color:'var(--text-secondary)', overflow:'hidden',
+              textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+              {log.description || log.event_type?.replace(/_/g,' ') || '—'}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 // ── Dashboard ──────────────────────────────────────────────
 export default function Dashboard({ stats, incidents, onSelect, onQuickAction }) {
   const [summary, setSummary] = useState(null)
@@ -508,16 +601,8 @@ export default function Dashboard({ stats, incidents, onSelect, onQuickAction })
         </div>
 
         <div className="card" style={{ padding:0 }}>
-          <SectionHeader title="Recent Incidents"/>
-          {recent.length === 0 ? (
-            <div style={{ padding:40, textAlign:'center', color:'var(--text-muted)' }}>
-              <CheckCircle size={32} style={{ margin:'0 auto 8px', display:'block', opacity:0.3 }}/>
-              <div>No incidents detected</div>
-              <div style={{ fontSize:11, marginTop:4 }}>Monitoring is active</div>
-            </div>
-          ) : recent.map(i => (
-            <IncidentRow key={i._id} incident={i} onSelect={onSelect}/>
-          ))}
+          <SectionHeader title="📋 Event Logs" subtitle="live · 30s TTL"/>
+          <InlineEventLogs/>
         </div>
       </div>
 
