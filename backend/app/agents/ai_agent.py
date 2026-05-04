@@ -140,19 +140,30 @@ def _format(data) -> str:
 # ── Key tools exposed to Qwen ─────────────────────────────────────────────────
 # Step-by-step expansion: start with core ops, add more each sprint
 KEY_TOOLS = [
-    # Job management
-    "job_templates_list",
-    "job_templates_launch_create",
-    "jobs_list",
-    "jobs_retrieve",
-    # Inventory
-    "hosts_list",
-    "inventories_list",
-    # Ad-hoc
-    "ad_hoc_commands_create",
-    # Workflow
+    # ── Job templates ──────────────────────────────────────
+    "job_templates_list",             # list all job templates
+    "job_templates_retrieve",         # get details of a specific template
+    "job_templates_launch_create",    # launch a job template
+    # ── Jobs (running/history) ─────────────────────────────
+    "jobs_list",                      # list recent jobs
+    "jobs_retrieve",                  # get job details + status
+    "jobs_stdout_retrieve",           # get job console output
+    "jobs_relaunch_create",           # relaunch a failed job
+    "jobs_cancel_create",             # cancel a running job
+    # ── Workflow templates ─────────────────────────────────
     "workflow_job_templates_list",
     "workflow_job_templates_launch_create",
+    "workflow_jobs_list",
+    "workflow_jobs_retrieve",
+    # ── Inventory / hosts ──────────────────────────────────
+    "inventories_list",
+    "hosts_list",
+    "hosts_retrieve",
+    "groups_list",
+    # ── Projects & credentials ─────────────────────────────
+    "projects_list",
+    "credentials_list",
+    "execution_environments_list",
 ]
 
 
@@ -214,7 +225,9 @@ User: how do I check SNMP traps?    → plain text steps from knowledge base
 User: list all hosts                → {{"tool": "hosts_list", "args": {{}}}}
 User: patch haproxy server          → {{"tool": "job_templates_launch_create", "args": {{"id": 9}}}}
 User: show recent jobs              → {{"tool": "jobs_list", "args": {{}}}}
-User: ping all servers              → {{"tool": "ad_hoc_commands_create", "args": {{"module_name": "ping"}}}}"""
+User: relaunch job 452              → {{"tool": "jobs_relaunch_create", "args": {{"id": 452}}}}
+User: cancel job 452               → {{"tool": "jobs_cancel_create", "args": {{"id": 452}}}}
+User: show output of job 452        → {{"tool": "jobs_stdout_retrieve", "args": {{"id": 452}}}}"""
 
     async with httpx.AsyncClient(verify=False, timeout=60) as c:
         resp = await c.post(
