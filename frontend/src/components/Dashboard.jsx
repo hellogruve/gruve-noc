@@ -431,10 +431,11 @@ const EV_COLOR = {
 function InlineEventLogs() {
   const [logs,    setLogs]    = useState([])
   const [loading, setLoading] = useState(true)
+  const [search,  setSearch]  = useState('')
 
   const load = async () => {
     try {
-      const r = await fetch(`${API}/api/v1/logs?limit=50`)
+      const r = await fetch(`${API}/api/v1/logs?limit=100`)
       const d = await r.json()
       setLogs(Array.isArray(d) ? d : d.logs || d.events || [])
     } catch(e) {}
@@ -442,6 +443,15 @@ function InlineEventLogs() {
   }
 
   useEffect(() => { load(); const t=setInterval(load,15000); return()=>clearInterval(t) }, [])
+
+  const filtered = search.trim()
+    ? logs.filter(l =>
+        (l.device_name||'').toLowerCase().includes(search.toLowerCase()) ||
+        (l.device_serial||'').toLowerCase().includes(search.toLowerCase()) ||
+        (l.description||'').toLowerCase().includes(search.toLowerCase()) ||
+        (l.event_type||'').toLowerCase().includes(search.toLowerCase())
+      )
+    : logs
 
   if (loading) return (
     <div style={{ padding:40, textAlign:'center', color:'var(--text-muted)', fontSize:12 }}>
@@ -457,7 +467,23 @@ function InlineEventLogs() {
   )
 
   return (
-    <div style={{ overflowY:'auto', maxHeight:340 }}>
+    <div>
+      {/* Search bar */}
+      <div style={{ padding:'8px 12px', borderBottom:'1px solid var(--bg-border)',
+        background:'var(--bg-elevated)' }}>
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search device, event type, description..."
+          style={{ width:'100%', fontSize:12, padding:'6px 10px',
+            borderRadius:6, border:'1px solid var(--bg-border)',
+            background:'var(--bg-surface)', color:'var(--text-primary)',
+            outline:'none' }}
+          onFocus={e => e.target.style.borderColor='var(--gruve-green)'}
+          onBlur={e  => e.target.style.borderColor='var(--bg-border)'}
+        />
+      </div>
+      <div style={{ overflowY:'auto', maxHeight:300 }}>
       {/* Header row */}
       <div style={{ display:'grid', gridTemplateColumns:'70px 90px 130px 1fr',
         padding:'6px 16px', borderBottom:'2px solid var(--bg-border)',
@@ -469,7 +495,9 @@ function InlineEventLogs() {
         <div>Device</div>
         <div>Description</div>
       </div>
-      {logs.map((log, i) => {
+      {filtered.length === 0 && search ? (
+        <div style={{ padding:20, textAlign:'center', fontSize:12, color:'var(--text-muted)' }}>No logs matching "{search}"</div>
+      ) : filtered.map((log, i) => {
         const ev   = EV_COLOR[log.event_type] || EV_COLOR.default
         const time = log.occurred_at
           ? new Date(log.occurred_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'})
@@ -503,6 +531,7 @@ function InlineEventLogs() {
           </div>
         )
       })}
+      </div>
     </div>
   )
 }
