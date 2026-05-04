@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { AlertTriangle, CheckCircle, Zap, Activity, X, Wifi, WifiOff, Clock } from 'lucide-react'
 
 const API = import.meta.env.VITE_API_BASE_URL || ''
@@ -108,37 +108,100 @@ function TypeBars({ byType }) {
   )
 }
 
-// ── Network Bar Chart ──────────────────────────────────────
-function NetworkBars({ byNetwork }) {
-  const entries = Object.entries(byNetwork).sort((a,b) => b[1]-a[1])
-  const max     = Math.max(...entries.map(e => e[1]), 1)
-  return (
-    <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-      {entries.length === 0
-        ? <div style={{ fontSize:12, color:'var(--text-muted)', padding:'20px 0',
-            textAlign:'center' }}>No data</div>
-        : entries.map(([net, count]) => (
-          <div key={net}>
-            <div style={{ display:'flex', justifyContent:'space-between',
-              marginBottom:4, fontSize:12 }}>
-              <span style={{ color:'var(--text-secondary)',
-                overflow:'hidden', textOverflow:'ellipsis',
-                whiteSpace:'nowrap', maxWidth:120 }}>{net || 'Unknown'}</span>
-              <span style={{ fontWeight:600, fontFamily:'monospace',
-                color:'var(--gruve-green)' }}>{count}</span>
-            </div>
-            <div style={{ height:7, background:'var(--bg-border)',
-              borderRadius:4, overflow:'hidden' }}>
-              <div style={{
-                height:'100%', borderRadius:4,
-                background:'var(--gruve-green)',
-                width:`${(count/max)*100}%`,
-                transition:'width 0.6s ease'
-              }}/>
-            </div>
-          </div>
-        ))
+// ── Quick Actions ──────────────────────────────────────────
+const QUICK_JOBS = [
+  { id:12, label:'Restart Service',    icon:'🔧', color:'#2563EB' },
+  { id:18, label:'Check Disk Usage',   icon:'💾', color:'#16A34A' },
+  { id:11, label:'Check Essential Svcs',icon:'🩺', color:'#7C3AED' },
+  { id:9,  label:'Patch RHEL VMs',     icon:'📦', color:'#D97706' },
+  { id:13, label:'Remediate Service',  icon:'⚡', color:'#DC2626' },
+]
+
+function QuickActions({ onJobLaunch }) {
+  const [running, setRunning] = useState({})
+  const [lastJob, setLastJob] = useState(null)
+
+  const launch = async (job) => {
+    if (running[job.id]) return
+    setRunning(r => ({ ...r, [job.id]: 'launching' }))
+    try {
+      const resp = await fetch(`${API}/api/v1/ai/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: `launch job template id ${job.id}` })
+      })
+      const d = await resp.json()
+      const match = (d.content || '').match(/Job ID:\s*(\d+)/)
+      const jobId = match ? parseInt(match[1]) : null
+      setRunning(r => ({ ...r, [job.id]: 'launched' }))
+      setLastJob({ label: job.label, jobId, status: 'pending', color: job.color })
+      onJobLaunch && onJobLaunch(jobId)
+      // Poll for completion
+      if (jobId) {
+        const poll = setInterval(async () => {
+          const r2 = await fetch(`${API}/api/v1/ai/job/${jobId}`)
+          const d2 = await r2.json()
+          setLastJob(prev => ({ ...prev, status: d2.status }))
+          if (d2.finished) {
+            clearInterval(poll)
+            setTimeout(() => setRunning(r => { const n={...r}; delete n[job.id]; return n }), 2000)
+          }
+        }, 4000)
       }
+    } catch(e) {
+      setRunning(r => ({ ...r, [job.id]: 'error' }))
+      setTimeout(() => setRunning(r => { const n={...r}; delete n[job.id]; return n }), 2000)
+    }
+  }
+
+  const statusColor = { pending:'#D97706', running:'#2563EB',
+    successful:'#16A34A', failed:'#DC2626', error:'#DC2626' }
+  const statusIcon  = { pending:'⏳', running:'🔄',
+    successful:'✅', failed:'❌', error:'❌' }
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+      {QUICK_JOBS.map(job => {
+        const state = running[job.id]
+        const busy  = state === 'launching' || state === 'launched'
+        return (
+          <button key={job.id} onClick={() => launch(job)} disabled={busy}
+            onMouseEnter={e => { if(!busy) e.currentTarget.style.borderColor=job.color }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor='var(--bg-border)' }}
+            style={{ display:'flex', alignItems:'center', gap:10,
+              padding:'8px 12px', borderRadius:8, cursor: busy ? 'not-allowed' : 'pointer',
+              background: busy ? `${job.color}10` : 'var(--bg-elevated)',
+              border:`1px solid ${busy ? job.color+'40' : 'var(--bg-border)'}`,
+              transition:'all 0.15s', width:'100%', textAlign:'left' }}>
+            <span style={{ fontSize:14, lineHeight:1 }}>
+              {state === 'launching' ? '⏳' : state === 'launched' ? '🚀' : job.icon}
+            </span>
+            <span style={{ flex:1, fontSize:12, fontWeight:500,
+              color: busy ? job.color : 'var(--text-secondary)' }}>
+              {job.label}
+            </span>
+            <span style={{ fontSize:10, fontFamily:'monospace',
+              color:'var(--text-muted)' }}>#{job.id}</span>
+          </button>
+        )
+      })}
+      {lastJob && (
+        <div style={{ marginTop:4, padding:'8px 10px', borderRadius:8,
+          background:`${statusColor[lastJob.status] || '#6B7280'}10`,
+          border:`1px solid ${statusColor[lastJob.status] || '#6B7280'}30`,
+          fontSize:11, display:'flex', alignItems:'center', gap:6 }}>
+          <span>{statusIcon[lastJob.status] || '⏳'}</span>
+          <span style={{ color:'var(--text-secondary)', flex:1 }}>
+            {lastJob.label}
+          </span>
+          {lastJob.jobId && (
+            <span style={{ fontFamily:'monospace',
+              color: statusColor[lastJob.status] || '#6B7280' }}>
+              #{lastJob.jobId} {lastJob.status}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -438,11 +501,11 @@ export default function Dashboard({ stats, incidents, onSelect }) {
           </div>
         </div>
 
-        {/* By network */}
+        {/* Quick Actions */}
         <div className="card" style={{ padding:0 }}>
-          <SectionHeader title="By Network"/>
-          <div style={{ padding:20 }}>
-            <NetworkBars byNetwork={summary?.by_network || {}}/>
+          <SectionHeader title="⚡ Quick Actions" subtitle="one-click automation"/>
+          <div style={{ padding:16 }}>
+            <QuickActions onJobLaunch={(id) => console.log('launched', id)}/>
           </div>
         </div>
       </div>
