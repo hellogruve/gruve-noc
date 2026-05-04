@@ -68,6 +68,9 @@ class IncidentAgent:
                 await mongo_service.save_event_logs(all_events)
                 logger.info(f"Saved {len(all_events)} device events to logs")
 
+        # Cache device list for dashboard
+        await mongo_service.save_devices_cache(devices)
+
         # Detect incidents
         detected = []
         for device in devices:
