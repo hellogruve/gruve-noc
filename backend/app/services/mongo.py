@@ -222,13 +222,13 @@ class MongoService:
 
 # Singleton
     async def save_devices_cache(self, devices: list[dict]):
-        col = self.db["devices_cache"]
+        col = self._db["devices_cache"]
         await col.drop()
         if devices:
             await col.insert_many(devices)
 
     async def get_devices_cache(self) -> list[dict]:
-        cursor = self.db["devices_cache"].find({})
+        cursor = self._db["devices_cache"].find({})
         docs   = await cursor.to_list(500)
         return [_serialize(d) for d in docs]
 
