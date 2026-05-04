@@ -7,6 +7,7 @@ import json
 import re
 import logging
 import asyncio
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -21,10 +22,12 @@ MCP_HEADERS = {
     "Accept": "application/json, text/event-stream",
 }
 
-_lock       = asyncio.Lock()
-_session_id: str  = ""
-_tools:      list = []
-_aap_ctx:    dict = {}
+_lock        = asyncio.Lock()
+_session_id: str   = ""
+_tools:      list  = []
+_aap_ctx:    dict  = {}
+_session_ts: float = 0.0       # epoch time of last init
+SESSION_TTL  = 1800            # reinit after 30 minutes
 
 
 # ── MCP low-level ─────────────────────────────────────────────────────────────
@@ -40,8 +43,19 @@ async def _mcp_post(method: str, params: dict = None, session_id: str = "") -> d
         resp = await c.post(MCP_URL, headers=headers, json=body)
     for line in resp.text.splitlines():
         if line.startswith("data:"):
-            return json.loads(line[5:].strip())
-    return {}
+            result = json.loads(line[5:].strip())
+            # Detect stale session — MCP returns error -32001 or empty result
+            if isinstance(result, dict):
+                err = result.get("error", {})
+                if isinstance(err, dict) and err.get("code") in (-32001, -32600, -32603):
+                    logger.warning(f"MCP session error {err.get('code')} — will reset")
+                    await reset_session()
+                    raise RuntimeError(f"MCP session stale: {err.get('message','')}")
+            return result
+    # Empty response = stale session
+    logger.warning("MCP returned empty response — resetting session")
+    await reset_session()
+    raise RuntimeError("MCP empty response — session was stale, retry your request")
 
 
 async def _init_session() -> str:
@@ -75,26 +89,33 @@ async def _load_aap_context(sid: str) -> dict:
 
 
 async def ensure_session():
-    global _session_id, _tools, _aap_ctx
+    global _session_id, _tools, _aap_ctx, _session_ts
     async with _lock:
-        if _session_id:
+        # Reinit if: never initialized, OR session is older than TTL
+        age = time.time() - _session_ts
+        if _session_id and age < SESSION_TTL:
             return
-        logger.info("Initializing MCP session...")
+        if _session_id:
+            logger.info(f"MCP session TTL expired ({int(age)}s) — reinitializing...")
+        else:
+            logger.info("Initializing MCP session...")
         _session_id = await _init_session()
         r = await _mcp_post("tools/list", session_id=_session_id)
         _tools   = r.get("result",{}).get("tools",[])
         _aap_ctx = await _load_aap_context(_session_id)
+        _session_ts = time.time()
         logger.info(f"MCP ready — {len(_tools)} tools, "
                     f"{len(_aap_ctx.get('job_templates',[]))} templates, "
                     f"{len(_aap_ctx.get('hosts',[]))} hosts")
 
 
 async def reset_session():
-    global _session_id, _tools, _aap_ctx
+    global _session_id, _tools, _aap_ctx, _session_ts
     async with _lock:
         _session_id = ""
         _tools      = []
         _aap_ctx    = {}
+        _session_ts = 0.0
 
 
 def get_aap_context() -> dict:
@@ -112,8 +133,17 @@ def _parse_content(result):
 
 
 async def _call_tool(name: str, args: dict) -> dict:
-    r = await _mcp_post("tools/call", {"name":name,"arguments":args}, _session_id)
-    return r.get("result", r)
+    try:
+        r = await _mcp_post("tools/call", {"name":name,"arguments":args}, _session_id)
+        return r.get("result", r)
+    except RuntimeError as e:
+        if "stale" in str(e) or "empty response" in str(e):
+            # Session was reset — reinitialize and retry once
+            logger.info("Retrying tool call after session reset...")
+            await ensure_session()
+            r = await _mcp_post("tools/call", {"name":name,"arguments":args}, _session_id)
+            return r.get("result", r)
+        raise
 
 
 def _format(data) -> str:
@@ -253,6 +283,7 @@ async def process(message: str, kb_context: str = "", incidents: list = None) ->
     """
     Main entry point called by ai_router.
     Returns: { type, tool, args, content, sources_used }
+    Auto-retries once if MCP session was stale.
     """
     await ensure_session()
 

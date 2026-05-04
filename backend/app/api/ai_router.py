@@ -57,6 +57,7 @@ async def chat(body: ChatRequest):
 
 @router.get("/context")
 async def context():
+    await ensure_session()
     return get_aap_context()
 
 
