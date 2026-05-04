@@ -153,7 +153,12 @@ function QuickActions({ onJobLaunch, onQuickAction }) {
           </button>
         )
       })}
-       {
+    </div>
+  )
+}
+
+// ── 12h Timeline Sparkline ─────────────────────────────────
+function Timeline({ data }) {
   if (!data || data.length === 0) return (
     <div style={{ fontSize:12, color:'var(--text-muted)', textAlign:'center',
       padding:'20px 0' }}>No data</div>
