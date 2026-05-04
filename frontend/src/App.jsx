@@ -65,7 +65,6 @@ export default function App() {
           <img src={gruveLogo} alt="Gruve"
             style={{ width: '100%', maxWidth: 130, display: 'block', marginBottom: 10 }}/>
           <div style={{ fontSize: 10, color: 'var(--gruve-green)', letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 500 }}>
-            Data to Possibilities Embedded
           </div>
           <div style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase', marginTop: 3 }}>
             Autonomous AI NOC
