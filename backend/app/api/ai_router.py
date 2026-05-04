@@ -9,7 +9,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import Optional
 
-from app.agents.ai_agent import process, get_aap_context, get_context, _call_tool, _parse_content, ensure_session
+from app.agents.ai_agent import process, get_aap_context, _call_tool, _parse_content, ensure_session
 from app.services.qdrant_svc import qdrant_service
 from app.services.mongo import mongo_service
 
@@ -57,8 +57,7 @@ async def chat(body: ChatRequest):
 
 @router.get("/context")
 async def context():
-    from app.agents.ai_agent import get_context
-    return await get_context()
+    return get_aap_context()
 
 
 @router.get("/job/{job_id}")
