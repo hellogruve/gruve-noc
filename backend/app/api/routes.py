@@ -71,7 +71,7 @@ async def dashboard_summary():
 
     # ── 2. Device health from devices_cache ───────────────────────
     try:
-        devices     = await mongo_service.db["devices_cache"].find({}).to_list(500)
+        devices     = await mongo_service._db["devices_cache"].find({}).to_list(500)
         total_dev   = len(devices)
         online_dev  = sum(1 for d in devices if d.get("status") == "online")
         offline_dev = total_dev - online_dev
@@ -89,7 +89,7 @@ async def dashboard_summary():
             {"$sort": {"count": -1}},
             {"$limit": 6}
         ]
-        net_cursor = mongo_service.db["incidents"].aggregate(net_pipeline)
+        net_cursor = mongo_service._db["incidents"].aggregate(net_pipeline)
         net_docs   = await net_cursor.to_list(6)
         by_network = {d["_id"]: d["count"] for d in net_docs if d["_id"]}
     except Exception:
@@ -99,7 +99,7 @@ async def dashboard_summary():
     try:
         now       = datetime.now(timezone.utc)
         since     = now - timedelta(hours=12)
-        tl_cursor = mongo_service.db["incidents"].find(
+        tl_cursor = mongo_service._db["incidents"].find(
             {"created_at": {"$gte": since.isoformat()}},
             {"created_at": 1, "status": 1}
         ).sort("created_at", 1)
@@ -128,7 +128,7 @@ async def dashboard_summary():
 
     # ── 6. Recent resolved (last 5) ───────────────────────────────
     try:
-        res_cursor = mongo_service.db["incidents"].find(
+        res_cursor = mongo_service._db["incidents"].find(
             {"status": "resolved"},
             {"device_name":1,"incident_type":1,"network_name":1,
              "created_at":1,"resolved_at":1}
