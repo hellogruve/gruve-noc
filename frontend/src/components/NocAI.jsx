@@ -286,7 +286,7 @@ function extractJobId(content) {
 }
 
 // ── Main component ─────────────────────────────────────────
-export default function NocAI({ api = '' }) {
+export default function NocAI({ api = '', pendingCmd = null, onCmdConsumed }) {
   const [messages,  setMessages]  = useState([{
     id:0, role:'assistant', tool:null, sources:0, time:now(),
     error:false, jobId:null,
@@ -298,6 +298,14 @@ export default function NocAI({ api = '' }) {
   const [connected, setConnected] = useState(false)
   const bottomRef = useRef(null)
   const inputRef  = useRef(null)
+
+  // Auto-send command when navigated from Quick Actions
+  useEffect(() => {
+    if (pendingCmd) {
+      send(pendingCmd)
+      onCmdConsumed && onCmdConsumed()
+    }
+  }, [pendingCmd])
 
   useEffect(() => {
     fetch(`${api}/api/v1/ai/context`)

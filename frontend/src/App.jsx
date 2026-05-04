@@ -17,6 +17,7 @@ export default function App() {
   const [stats, setStats]               = useState({})
   const [openCount, setOpenCount]       = useState(0)
   const [sidebarOpen, setSidebarOpen]   = useState(true)
+  const [pendingCmd,  setPendingCmd]    = useState(null)
 
   useEffect(() => {
     const fetchIncidents = async () => {
@@ -123,11 +124,11 @@ export default function App() {
           }}>
           <Menu size={14} color="var(--text-secondary)"/>
         </button>
-        {activeTab === 'dashboard'   && <Dashboard stats={stats} incidents={incidents} onSelect={handleSelectIncident}/>}
+        {activeTab === 'dashboard'   && <Dashboard stats={stats} incidents={incidents} onSelect={handleSelectIncident} onQuickAction={(cmd) => { setPendingCmd(cmd); setActiveTab('nocai') }}/>}
         {activeTab === 'incidents'   && <IncidentList incidents={incidents} onSelect={handleSelectIncident}/>}
         {activeTab === 'networkmap'  && <DeviceMap/>}
         {activeTab === 'eventlogs'   && <EventLogs/>}
-        {activeTab === 'nocai'       && <NocAI api={API}/>}
+        {activeTab === 'nocai'       && <NocAI api={API} pendingCmd={pendingCmd} onCmdConsumed={() => setPendingCmd(null)}/>}
         {activeTab === 'remediation' && <RemediationPanel incident={selectedIncident} api={API}/>}
       </main>
     </div>
