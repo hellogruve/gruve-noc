@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Activity, MessageSquare, Zap, Bell, Map, ScrollText, Terminal, Bot } from 'lucide-react'
+import { Activity, MessageSquare, Zap, Bell, Map, ScrollText, Terminal, Bot, Menu } from 'lucide-react'
 import Dashboard from './components/Dashboard.jsx'
 import IncidentList from './components/IncidentList.jsx'
 import RemediationPanel from './components/RemediationPanel.jsx'
@@ -16,6 +16,7 @@ export default function App() {
   const [incidents, setIncidents]       = useState([])
   const [stats, setStats]               = useState({})
   const [openCount, setOpenCount]       = useState(0)
+  const [sidebarOpen, setSidebarOpen]   = useState(true)
 
   useEffect(() => {
     const fetchIncidents = async () => {
@@ -56,7 +57,7 @@ export default function App() {
   return (
     <div style={{ display:'flex', height:'100vh', overflow:'hidden' }}>
       <aside style={{
-        width: 230, minWidth: 230,
+        width: sidebarOpen ? 230 : 0, minWidth: sidebarOpen ? 230 : 0,
         background: 'var(--bg-surface)',
         borderRight: '1px solid var(--bg-border)',
         display: 'flex', flexDirection: 'column'
@@ -108,7 +109,20 @@ export default function App() {
         </div>
       </aside>
 
-      <main style={{ flex:1, overflow:'auto', background:'var(--bg-base)' }}>
+      <main style={{ flex:1, overflow:'auto', background:'var(--bg-base)', position:'relative' }}>
+        <button
+          onClick={() => setSidebarOpen(o => !o)}
+          title={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+          style={{
+            position: 'fixed', top: 14, left: sidebarOpen ? 194 : 14, zIndex: 200,
+            width: 28, height: 28, borderRadius: 6,
+            background: 'var(--bg-surface)', border: '1px solid var(--bg-border)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', transition: 'left 0.25s ease',
+            boxShadow: '0 1px 4px rgba(0,0,0,0.08)'
+          }}>
+          <Menu size={14} color="var(--text-secondary)"/>
+        </button>
         {activeTab === 'dashboard'   && <Dashboard stats={stats} incidents={incidents} onSelect={handleSelectIncident}/>}
         {activeTab === 'incidents'   && <IncidentList incidents={incidents} onSelect={handleSelectIncident}/>}
         {activeTab === 'networkmap'  && <DeviceMap/>}
