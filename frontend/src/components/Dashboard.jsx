@@ -434,9 +434,9 @@ function InlineEventLogs() {
 
   const load = async () => {
     try {
-      const r = await fetch(`${API}/api/v1/events?limit=50`)
+      const r = await fetch(`${API}/api/v1/logs?limit=50`)
       const d = await r.json()
-      setLogs(d.events || d || [])
+      setLogs(Array.isArray(d) ? d : d.logs || d.events || [])
     } catch(e) {}
     finally { setLoading(false) }
   }
