@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { AlertTriangle, CheckCircle, Zap, Activity, X, Wifi, WifiOff, Clock } from 'lucide-react'
+import { AlertTriangle, CheckCircle, Zap, Activity, X, Wifi, WifiOff, Clock, MapPin, Shield, Network, Monitor, RefreshCw } from 'lucide-react'
 
 const API = import.meta.env.VITE_API_BASE_URL || ''
 
@@ -19,6 +19,206 @@ const STATUS_COLOR = {
   open:        '#DC2626',
   remediating: '#D97706',
   resolved:    '#16A34A',
+}
+
+// ── Mini Network Map ───────────────────────────────────────
+const NETWORK_LOCATIONS = {
+  "Redwood City": { lat:37.4852, lng:-122.2364, city:"Redwood City, CA" },
+  "Korea Office": { lat:37.5665, lng:126.9780,  city:"Seoul, Korea" },
+  "IN-PUN-ASTP":  { lat:18.5204, lng:73.8567,   city:"Pune, India" },
+}
+const TYPE_ICON_MAP = {
+  wireless:  { color:'#3B8BDE', label:'Wireless AP' },
+  appliance: { color:'#16A34A', label:'Firewall' },
+  switch:    { color:'#D97706', label:'Switch' },
+  default:   { color:'#6B7280', label:'Device' },
+}
+function latLngToPercent(lat, lng) {
+  return { x:((lng+180)/360)*100, y:((90-lat)/180)*100 }
+}
+function MiniMap() {
+  const [data,     setData]     = useState(null)
+  const [selected, setSelected] = useState(null)
+  const [loading,  setLoading]  = useState(true)
+
+  const fetch_ = async () => {
+    try {
+      const r = await fetch(`${API}/api/v1/devices`)
+      const d = await r.json()
+      setData(d)
+      if (!selected && d.groups?.length > 0) setSelected(d.groups[0].networkId)
+    } catch(e) {}
+    finally { setLoading(false) }
+  }
+
+  useEffect(() => { fetch_(); const t=setInterval(fetch_,30000); return()=>clearInterval(t) }, [])
+
+  const selGroup = data?.groups?.find(g => g.networkId === selected)
+
+  return (
+    <div style={{ display:'flex', gap:0, height:220, overflow:'hidden' }}>
+
+      {/* Map */}
+      <div style={{ flex:1, position:'relative', overflow:'hidden',
+        background:'linear-gradient(180deg,#0d1117 0%,#0a1628 100%)',
+        borderRadius:'0 0 0 14px' }}>
+
+        {/* Grid */}
+        <svg width="100%" height="100%" style={{ position:'absolute',top:0,left:0,opacity:0.12 }}>
+          {[-90,-60,-30,0,30,60,90,120,150].map(lng=>(
+            <line key={lng} x1={`${((lng+180)/360)*100}%`} y1="0"
+              x2={`${((lng+180)/360)*100}%`} y2="100%"
+              stroke="#00D46A" strokeWidth="0.5" strokeDasharray="3 6"/>
+          ))}
+          {[-30,0,30,60].map(lat=>(
+            <line key={lat} x1="0" y1={`${((90-lat)/180)*100}%`}
+              x2="100%" y2={`${((90-lat)/180)*100}%`}
+              stroke="#00D46A" strokeWidth="0.5" strokeDasharray="3 6"/>
+          ))}
+        </svg>
+
+        {/* Continents */}
+        <svg viewBox="0 0 1000 500" width="100%" height="100%"
+          style={{ position:'absolute',top:0,left:0 }}>
+          <path d="M 150 80 L 280 70 L 310 130 L 290 200 L 240 230 L 180 210 L 140 160 Z"
+            fill="rgba(0,212,106,0.06)" stroke="rgba(0,212,106,0.18)" strokeWidth="1"/>
+          <path d="M 220 250 L 290 240 L 300 350 L 250 420 L 200 380 L 190 300 Z"
+            fill="rgba(0,212,106,0.06)" stroke="rgba(0,212,106,0.18)" strokeWidth="1"/>
+          <path d="M 460 60 L 560 55 L 570 120 L 500 140 L 450 120 Z"
+            fill="rgba(0,212,106,0.06)" stroke="rgba(0,212,106,0.18)" strokeWidth="1"/>
+          <path d="M 470 150 L 560 140 L 580 280 L 520 360 L 460 300 L 450 200 Z"
+            fill="rgba(0,212,106,0.06)" stroke="rgba(0,212,106,0.18)" strokeWidth="1"/>
+          <path d="M 570 50 L 850 40 L 880 180 L 800 220 L 680 200 L 580 160 L 560 100 Z"
+            fill="rgba(0,212,106,0.06)" stroke="rgba(0,212,106,0.18)" strokeWidth="1"/>
+          <path d="M 760 280 L 870 270 L 880 360 L 820 390 L 750 350 Z"
+            fill="rgba(0,212,106,0.06)" stroke="rgba(0,212,106,0.18)" strokeWidth="1"/>
+        </svg>
+
+        {/* Connection lines */}
+        {!loading && data?.groups?.length > 1 && (()=>{
+          const positions = data.groups
+            .filter(g=>NETWORK_LOCATIONS[g.networkName])
+            .map(g=>latLngToPercent(NETWORK_LOCATIONS[g.networkName].lat, NETWORK_LOCATIONS[g.networkName].lng))
+          return (
+            <svg width="100%" height="100%" style={{position:'absolute',top:0,left:0,pointerEvents:'none'}}>
+              {positions.map((p1,i)=>positions.slice(i+1).map((p2,j)=>(
+                <line key={`${i}-${j}`}
+                  x1={`${p1.x}%`} y1={`${p1.y}%`}
+                  x2={`${p2.x}%`} y2={`${p2.y}%`}
+                  stroke="rgba(0,212,106,0.2)" strokeWidth="1" strokeDasharray="4 4"/>
+              )))}
+            </svg>
+          )
+        })()}
+
+        {/* Pins */}
+        {!loading && data?.groups?.map(group=>{
+          const loc = NETWORK_LOCATIONS[group.networkName]
+          if (!loc) return null
+          const pos  = latLngToPercent(loc.lat, loc.lng)
+          const ok   = group.offline === 0
+          const isSel = selected === group.networkId
+          return (
+            <div key={group.networkId} onClick={()=>setSelected(group.networkId)}
+              style={{ position:'absolute', left:`${pos.x}%`, top:`${pos.y}%`,
+                transform:'translate(-50%,-50%)', cursor:'pointer', zIndex: isSel?10:5 }}>
+              {ok && <div style={{ position:'absolute', width:32, height:32,
+                borderRadius:'50%', background:'rgba(0,212,106,0.15)',
+                border:'1px solid rgba(0,212,106,0.4)',
+                top:'50%', left:'50%', transform:'translate(-50%,-50%)',
+                animation:'pulse-ring 2s ease-out infinite' }}/>}
+              <div style={{ width:26, height:26, borderRadius:'50%',
+                background: isSel ? '#16A34A' : '#1a2332',
+                border:`2px solid ${ok?'#16A34A':'#DC2626'}`,
+                display:'flex', alignItems:'center', justifyContent:'center',
+                boxShadow:`0 2px 8px ${ok?'rgba(22,163,74,0.5)':'rgba(220,38,38,0.5)'}`,
+                transition:'all 0.2s' }}>
+                <MapPin size={12} color={isSel?'#fff':ok?'#16A34A':'#DC2626'}/>
+              </div>
+              <div style={{ position:'absolute', top:28, left:'50%',
+                transform:'translateX(-50%)',
+                background:'rgba(10,14,26,0.9)', border:'1px solid rgba(255,255,255,0.1)',
+                borderRadius:4, padding:'2px 6px', fontSize:9, fontWeight:600,
+                color:'#e2e8f0', whiteSpace:'nowrap', pointerEvents:'none' }}>
+                {group.networkName} {group.online}/{group.total}
+              </div>
+            </div>
+          )
+        })}
+
+        {loading && <div style={{ position:'absolute', inset:0, display:'flex',
+          alignItems:'center', justifyContent:'center',
+          color:'rgba(255,255,255,0.3)', fontSize:12 }}>Loading map…</div>}
+      </div>
+
+      {/* Side panel */}
+      <div style={{ width:160, borderLeft:'1px solid var(--bg-border)',
+        display:'flex', flexDirection:'column', overflow:'hidden',
+        background:'var(--bg-surface)', borderRadius:'0 0 14px 0' }}>
+        {selGroup ? (
+          <>
+            <div style={{ padding:'10px 12px', borderBottom:'1px solid var(--bg-border)' }}>
+              <div style={{ fontSize:11, fontWeight:600, color:'var(--text-primary)',
+                overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                {selGroup.networkName}
+              </div>
+              <div style={{ fontSize:10, color:'var(--text-muted)', marginTop:2 }}>
+                {NETWORK_LOCATIONS[selGroup.networkName]?.city}
+              </div>
+              <div style={{ display:'flex', gap:8, marginTop:4 }}>
+                <span style={{ fontSize:10, color:'#16A34A', fontWeight:600 }}>
+                  {selGroup.online}↑
+                </span>
+                {selGroup.offline > 0 && (
+                  <span style={{ fontSize:10, color:'#DC2626', fontWeight:600 }}>
+                    {selGroup.offline}↓
+                  </span>
+                )}
+              </div>
+            </div>
+            <div style={{ flex:1, overflowY:'auto', padding:'6px 8px' }}>
+              {selGroup.devices.map(dev=>{
+                const info = TYPE_ICON_MAP[dev.productType] || TYPE_ICON_MAP.default
+                const on   = dev.status === 'online'
+                return (
+                  <div key={dev.serial} style={{ display:'flex', alignItems:'center',
+                    gap:6, padding:'4px 0',
+                    borderBottom:'1px solid var(--bg-border)' }}>
+                    <div style={{ width:5, height:5, borderRadius:'50%', flexShrink:0,
+                      background: on ? '#16A34A' : '#DC2626',
+                      boxShadow:`0 0 4px ${on?'rgba(22,163,74,0.6)':'rgba(220,38,38,0.6)'}` }}/>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:10, fontWeight:500,
+                        color:'var(--text-primary)', overflow:'hidden',
+                        textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                        {dev.name}
+                      </div>
+                      <div style={{ fontSize:9, color:'var(--text-muted)' }}>
+                        {info.label}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </>
+        ) : (
+          <div style={{ flex:1, display:'flex', alignItems:'center',
+            justifyContent:'center', color:'var(--text-muted)', fontSize:11,
+            textAlign:'center', padding:12 }}>
+            Click a pin
+          </div>
+        )}
+      </div>
+
+      <style>{`
+        @keyframes pulse-ring {
+          0%   { transform:translate(-50%,-50%) scale(1);   opacity:0.8; }
+          100% { transform:translate(-50%,-50%) scale(2.2); opacity:0; }
+        }
+      `}</style>
+    </div>
+  )
 }
 
 // ── Pure SVG Donut Chart ───────────────────────────────────
@@ -157,55 +357,7 @@ function QuickActions({ onJobLaunch, onQuickAction }) {
   )
 }
 
-// ── 12h Timeline Sparkline ─────────────────────────────────
-function Timeline({ data }) {
-  if (!data || data.length === 0) return (
-    <div style={{ fontSize:12, color:'var(--text-muted)', textAlign:'center',
-      padding:'20px 0' }}>No data</div>
-  )
-  const max    = Math.max(...data.map(d => d.count), 1)
-  const W = 340, H = 64, pad = 4
-  const bw    = (W - pad * 2) / data.length - 2
 
-  return (
-    <div>
-      <svg width="100%" viewBox={`0 0 ${W} ${H+20}`}
-        style={{ overflow:'visible' }}>
-        {data.map((d, i) => {
-          const bh  = Math.max(d.count === 0 ? 2 : ((d.count/max) * H), 2)
-          const x   = pad + i * ((W - pad*2) / data.length)
-          const y   = H - bh + 4
-          const col = d.count === 0 ? 'var(--bg-border)'
-                    : d.count >= 3  ? '#DC2626'
-                    : d.count >= 1  ? '#D97706'
-                    : 'var(--gruve-green)'
-          return (
-            <g key={i}>
-              <rect x={x} y={y} width={bw} height={bh}
-                rx={2} fill={col}
-                style={{ transition:'height 0.4s ease, y 0.4s ease' }}>
-                <title>{d.hour}: {d.count} incident{d.count!==1?'s':''}</title>
-              </rect>
-              {i % 3 === 0 && (
-                <text x={x + bw/2} y={H+16} textAnchor="middle"
-                  fontSize={8} fill="var(--text-muted)">{d.hour}</text>
-              )}
-            </g>
-          )
-        })}
-      </svg>
-      <div style={{ display:'flex', gap:12, marginTop:4 }}>
-        {[['#DC2626','3+ incidents'],['#D97706','1-2 incidents'],['var(--bg-border)','None']].map(([c,l]) => (
-          <div key={l} style={{ display:'flex', alignItems:'center', gap:4,
-            fontSize:10, color:'var(--text-muted)' }}>
-            <div style={{ width:8, height:8, borderRadius:2, background:c }}/>
-            {l}
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
 
 // ── Stat Card ──────────────────────────────────────────────
 function StatCard({ label, value, color, icon:Icon, sublabel, onClick }) {
@@ -461,17 +613,17 @@ export default function Dashboard({ stats, incidents, onSelect, onQuickAction })
         </div>
       </div>
 
-      {/* Row 3: Timeline + Recent incidents */}
+        {/* Row 3: Mini Map + Recent incidents */}
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1.6fr',
         gap:14 }}>
 
-        {/* 12h Timeline */}
-        <div className="card" style={{ padding:0 }}>
-          <SectionHeader title="12h Incident Timeline"
-            subtitle="hourly"/>
-          <div style={{ padding:20 }}>
-            <Timeline data={summary?.timeline || []}/>
-          </div>
+        {/* Mini Network Map */}
+        <div className="card" style={{ padding:0, overflow:'hidden' }}>
+          <SectionHeader title="🗺 Network Map" subtitle="live"/>
+          <MiniMap/>
+        </div>
+
+
         </div>
 
         {/* Recent incidents */}
