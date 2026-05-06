@@ -317,7 +317,7 @@ async def list_integrations(category: Optional[str] = None, active_only: bool = 
     if active_only:
         query["is_active"] = True
 
-    integrations = await mongo_service.db["integrations"].find(query).to_list(length=500)
+    integrations = await mongo_service._db["integrations"].find(query).to_list(length=500)
 
     # Sanitize — never return raw credentials
     for i in integrations:
@@ -332,9 +332,9 @@ async def get_integration(integration_id: str):
     """Get a single integration by ID (credentials omitted)."""
     from bson import ObjectId
     try:
-        doc = await mongo_service.db["integrations"].find_one({"_id": ObjectId(integration_id)})
+        doc = await mongo_service._db["integrations"].find_one({"_id": ObjectId(integration_id)})
     except Exception:
-        doc = await mongo_service.db["integrations"].find_one({"id": integration_id})
+        doc = await mongo_service._db["integrations"].find_one({"id": integration_id})
 
     if not doc:
         raise HTTPException(status_code=404, detail="Integration not found")
@@ -381,7 +381,7 @@ async def create_integration(data: IntegrationCreate):
         "updated_at":      datetime.now(timezone.utc).isoformat(),
     }
 
-    await mongo_service.db["integrations"].insert_one(doc)
+    await mongo_service._db["integrations"].insert_one(doc)
     logger.info(f"Created integration: {integration_id} ({data.tool_id}) — {data.name}")
 
     doc.pop("credentials", None)
@@ -410,7 +410,7 @@ async def update_integration(integration_id: str, data: IntegrationUpdate):
     if data.tags is not None:
         updates["tags"] = data.tags
 
-    result = await mongo_service.db["integrations"].update_one(query, {"$set": updates})
+    result = await mongo_service._db["integrations"].update_one(query, {"$set": updates})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Integration not found")
 
@@ -422,9 +422,9 @@ async def delete_integration(integration_id: str):
     """Delete an integration."""
     from bson import ObjectId
     try:
-        result = await mongo_service.db["integrations"].delete_one({"_id": ObjectId(integration_id)})
+        result = await mongo_service._db["integrations"].delete_one({"_id": ObjectId(integration_id)})
     except Exception:
-        result = await mongo_service.db["integrations"].delete_one({"id": integration_id})
+        result = await mongo_service._db["integrations"].delete_one({"id": integration_id})
 
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Integration not found")
@@ -442,9 +442,9 @@ async def health_check(integration_id: str):
     """Test connectivity to an integration and update its health_status."""
     from bson import ObjectId
     try:
-        doc = await mongo_service.db["integrations"].find_one({"_id": ObjectId(integration_id)})
+        doc = await mongo_service._db["integrations"].find_one({"_id": ObjectId(integration_id)})
     except Exception:
-        doc = await mongo_service.db["integrations"].find_one({"id": integration_id})
+        doc = await mongo_service._db["integrations"].find_one({"id": integration_id})
 
     if not doc:
         raise HTTPException(status_code=404, detail="Integration not found")
@@ -461,7 +461,7 @@ async def health_check(integration_id: str):
     except Exception:
         q = {"id": integration_id}
 
-    await mongo_service.db["integrations"].update_one(q, {"$set": {
+    await mongo_service._db["integrations"].update_one(q, {"$set": {
         "health_status":     status,
         "last_health_check": now_iso,
         "updated_at":        now_iso,
@@ -580,9 +580,9 @@ async def receive_webhook(integration_id: str, request: Request):
     """
     from bson import ObjectId
     try:
-        doc = await mongo_service.db["integrations"].find_one({"id": integration_id})
+        doc = await mongo_service._db["integrations"].find_one({"id": integration_id})
         if not doc:
-            doc = await mongo_service.db["integrations"].find_one({"_id": ObjectId(integration_id)})
+            doc = await mongo_service._db["integrations"].find_one({"_id": ObjectId(integration_id)})
     except Exception:
         doc = None
 
@@ -621,7 +621,7 @@ async def receive_webhook(integration_id: str, request: Request):
         "received_at":      datetime.now(timezone.utc).isoformat(),
         "processed":        False,
     }
-    await mongo_service.db["webhook_events"].insert_one(event_doc)
+    await mongo_service._db["webhook_events"].insert_one(event_doc)
     logger.info(f"Webhook received: {doc.get('tool_id')} / {integration_id}")
 
     return {"status": "received", "integration": doc.get("name")}
