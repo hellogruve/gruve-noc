@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { Search, Zap } from 'lucide-react'
+import { Search, Zap, ExternalLink } from 'lucide-react'
 
 const TYPE_COLOR = {
-  DEVICE_DOWN:     'critical',
-  INTERNET_DOWN:   'critical',
-  DEVICE_STALE:    'warning',
-  DEVICE_RECOVERED:'ok',
+  DEVICE_DOWN:      'critical',
+  INTERNET_DOWN:    'critical',
+  VM_SERVICE_DOWN:  'critical',
+  DEVICE_STALE:     'warning',
+  DEVICE_RECOVERED: 'ok',
 }
 
 export default function IncidentList({ incidents, onSelect }) {
@@ -23,61 +24,91 @@ export default function IncidentList({ incidents, onSelect }) {
   })
 
   return (
-    <div style={{ padding:28 }}>
-      <div style={{ marginBottom:20 }}>
-        <h1 style={{ fontSize:20, fontWeight:600 }}>Incidents</h1>
-        <p style={{ fontSize:13, color:'var(--text-secondary)', marginTop:3 }}>
-          {incidents.length} total · {incidents.filter(i=>i.status==='open').length} open
+    <div style={{ padding: 28 }}>
+      {/* Header */}
+      <div style={{ marginBottom: 20 }}>
+        <h1 style={{ fontSize: 20, fontWeight: 600 }}>Incidents</h1>
+        <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 3 }}>
+          {incidents.length} total &middot;{' '}
+          {incidents.filter(i => i.status === 'open').length} open
         </p>
       </div>
 
       {/* Toolbar */}
-      <div style={{ display:'flex', gap:10, marginBottom:16 }}>
-        <div style={{ position:'relative', flex:1 }}>
-          <Search size={14} style={{
-            position:'absolute', left:10, top:'50%',
-            transform:'translateY(-50%)', color:'var(--text-muted)'
-          }}/>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+        <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
+          <Search
+            size={14}
+            style={{
+              position: 'absolute', left: 10, top: '50%',
+              transform: 'translateY(-50%)', color: 'var(--text-muted)'
+            }}
+          />
           <input
             placeholder="Search device, network, type..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            style={{ paddingLeft:32 }}
+            style={{ paddingLeft: 32, width: '100%' }}
           />
         </div>
-        {['all','open','remediating','resolved'].map(f => (
+
+        {/* Status filter buttons */}
+        {['all', 'open', 'approved', 'remediating', 'resolved'].map(f => (
           <button
             key={f}
-            className={`btn ${filter===f ? 'btn-primary' : 'btn-secondary'}`}
+            className={`btn ${filter === f ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => setFilter(f)}
+            style={{ textTransform: 'capitalize', fontSize: 12 }}
           >
-            {f.charAt(0).toUpperCase()+f.slice(1)}
+            {f}
+            {f !== 'all' && (
+              <span style={{
+                marginLeft: 5,
+                background: 'rgba(255,255,255,0.15)',
+                borderRadius: 10,
+                padding: '1px 6px',
+                fontSize: 11
+              }}>
+                {incidents.filter(i => i.status === f).length}
+              </span>
+            )}
           </button>
         ))}
       </div>
 
-      {/* Table */}
-      <div className="card" style={{ padding:0, overflow:'hidden' }}>
-        <div style={{
-          display:'grid',
-          gridTemplateColumns:'1fr 1fr 150px 120px 160px 80px',
-          padding:'10px 16px',
-          background:'var(--bg-elevated)',
-          borderBottom:'1px solid var(--bg-border)',
-          fontSize:11, color:'var(--text-muted)',
-          textTransform:'uppercase', letterSpacing:'0.06em'
-        }}>
-          <div>Device</div>
-          <div>Network</div>
-          <div>Type</div>
-          <div>Status</div>
-          <div>Detected</div>
-          <div>Action</div>
-        </div>
+      {/* Table header */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '1.5fr 1fr 1fr 1fr 1fr 80px',
+        gap: 12,
+        padding: '8px 16px',
+        fontSize: 11,
+        fontWeight: 600,
+        color: 'var(--text-muted)',
+        textTransform: 'uppercase',
+        letterSpacing: '0.05em',
+        borderBottom: '1px solid var(--border)'
+      }}>
+        <div>Device</div>
+        <div>Type</div>
+        <div>Network</div>
+        <div>Snow Ticket</div>
+        <div>Status</div>
+        <div style={{ textAlign: 'right' }}>Action</div>
+      </div>
 
+      {/* Incident rows */}
+      <div>
         {filtered.length === 0 && (
-          <div style={{ padding:40, textAlign:'center', color:'var(--text-muted)' }}>
-            No incidents match your filter
+          <div style={{
+            padding: '40px 16px',
+            textAlign: 'center',
+            color: 'var(--text-muted)',
+            fontSize: 13
+          }}>
+            {search || filter !== 'all'
+              ? 'No incidents match your filters.'
+              : 'No incidents detected. Monitoring is active.'}
           </div>
         )}
 
@@ -85,49 +116,84 @@ export default function IncidentList({ incidents, onSelect }) {
           <div
             key={incident._id}
             style={{
-              display:'grid',
-              gridTemplateColumns:'1fr 1fr 150px 120px 160px 80px',
-              padding:'12px 16px',
-              borderBottom:'1px solid var(--bg-border)',
-              alignItems:'center', fontSize:13,
-              transition:'background 0.1s'
+              display: 'grid',
+              gridTemplateColumns: '1.5fr 1fr 1fr 1fr 1fr 80px',
+              gap: 12,
+              padding: '12px 16px',
+              borderBottom: '1px solid var(--border)',
+              alignItems: 'center',
+              fontSize: 13,
+              cursor: 'pointer',
+              transition: 'background 0.15s',
             }}
-            onMouseEnter={e => e.currentTarget.style.background='var(--bg-elevated)'}
-            onMouseLeave={e => e.currentTarget.style.background='transparent'}
+            onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-surface)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+            onClick={() => onSelect(incident)}
           >
+            {/* Device */}
             <div>
-              <div style={{ fontWeight:500 }}>
-                {incident.device_name || incident.device_serial}
+              <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                {incident.device_name || '—'}
               </div>
-              <div className="mono" style={{ fontSize:10, color:'var(--text-muted)', marginTop:2 }}>
-                {incident.device_serial}
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                {incident.created_at
+                  ? new Date(incident.created_at).toLocaleString()
+                  : '—'}
               </div>
             </div>
-            <div style={{ color:'var(--text-secondary)' }}>
-              {incident.network_name || '—'}
-            </div>
+
+            {/* Type badge */}
             <div>
-              <span className={`badge ${TYPE_COLOR[incident.incident_type] || 'unknown'}`}>
-                {incident.incident_type?.replace(/_/g,' ')}
+              <span className={`badge badge-${TYPE_COLOR[incident.incident_type] || 'warning'}`}>
+                {incident.incident_type?.replace(/_/g, ' ') || '—'}
               </span>
             </div>
+
+            {/* Network */}
+            <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
+              {incident.network_name || incident.network_id || '—'}
+            </div>
+
+            {/* ServiceNow ticket */}
             <div>
-              <span className={`badge ${incident.status==='open'?'critical':incident.status==='resolved'?'ok':'warning'}`}>
+              {incident.snow_ticket_id ? (
+                <span style={{
+                  fontSize: 12,
+                  fontFamily: 'var(--font-mono)',
+                  color: 'var(--accent)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4
+                }}>
+                  {incident.snow_ticket_id}
+                  <ExternalLink size={10} />
+                </span>
+              ) : (
+                <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>—</span>
+              )}
+            </div>
+
+            {/* Status */}
+            <div>
+              <span className={`badge badge-${
+                incident.status === 'open'        ? 'critical' :
+                incident.status === 'approved'    ? 'warning'  :
+                incident.status === 'remediating' ? 'warning'  :
+                incident.status === 'resolved'    ? 'ok'       : 'warning'
+              }`}>
                 {incident.status}
               </span>
             </div>
-            <div className="mono" style={{ fontSize:11, color:'var(--text-secondary)' }}>
-              {incident.created_at
-                ? new Date(incident.created_at).toLocaleString()
-                : '—'}
-            </div>
-            <div>
+
+            {/* Action */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
               <button
                 className="btn btn-primary"
-                style={{ padding:'4px 10px', fontSize:11 }}
-                onClick={() => onSelect(incident)}
+                style={{ padding: '4px 12px', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}
+                onClick={e => { e.stopPropagation(); onSelect(incident); }}
               >
-                <Zap size={12}/> Run
+                <Zap size={11} />
+                {incident.status === 'open' ? 'Approve' : 'View'}
               </button>
             </div>
           </div>
