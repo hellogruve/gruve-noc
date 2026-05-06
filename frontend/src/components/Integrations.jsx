@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from "react";
 
 const API = import.meta.env.VITE_API_BASE_URL || "";
 
-// ── Vendor icon SVG paths (inline, no external dep) ──────────────────────────
 const ICONS = {
   meraki: (
     <svg viewBox="0 0 40 40" fill="none">
@@ -31,8 +30,8 @@ const ICONS = {
   ),
   linux: (
     <svg viewBox="0 0 40 40" fill="none">
-      <rect width="40" height="40" rx="8" fill="#FCC624" fillOpacity=".15"/>
-      <path d="M20 6c-3.3 0-6 2.7-6 6v8l-3 4h18l-3-4v-8c0-3.3-2.7-6-6-6zm-2 22h4v2h-4v-2z" fill="#FCC624"/>
+      <rect width="40" height="40" rx="8" fill="#FCC624" fillOpacity=".2"/>
+      <path d="M20 6c-3.3 0-6 2.7-6 6v8l-3 4h18l-3-4v-8c0-3.3-2.7-6-6-6zm-2 22h4v2h-4v-2z" fill="#D4A017"/>
     </svg>
   ),
   windows: (
@@ -95,420 +94,24 @@ const ICONS = {
   ),
 };
 
-const CATEGORY_COLORS = {
-  Network:    { bg: "rgba(0,188,242,.08)",  border: "#00BCF2", text: "#00BCF2"  },
-  VM:         { bg: "rgba(100,200,100,.08)",border: "#4CAF50", text: "#4CAF50"  },
-  Monitoring: { bg: "rgba(245,166,35,.08)", border: "#F5A623", text: "#F5A623"  },
-  CMDB:       { bg: "rgba(155,89,182,.08)", border: "#9B59B6", text: "#9B59B6"  },
-  ITSM:       { bg: "rgba(0,82,204,.08)",   border: "#0052CC", text: "#0052CC"  },
-  Security:   { bg: "rgba(220,53,69,.08)",  border: "#DC3545", text: "#DC3545"  },
+const CAT_STYLES = {
+  Network:    { bg: "#EFF9FF", border: "#B8E4F9", text: "#0369A1", dot: "#0EA5E9" },
+  VM:         { bg: "#F0FDF4", border: "#BBF7D0", text: "#15803D", dot: "#22C55E" },
+  Monitoring: { bg: "#FFFBEB", border: "#FDE68A", text: "#92400E", dot: "#F59E0B" },
+  CMDB:       { bg: "#FAF5FF", border: "#E9D5FF", text: "#6D28D9", dot: "#8B5CF6" },
+  ITSM:       { bg: "#EFF6FF", border: "#BFDBFE", text: "#1D4ED8", dot: "#3B82F6" },
+  Security:   { bg: "#FFF1F2", border: "#FECDD3", text: "#BE123C", dot: "#F43F5E" },
 };
 
-const HEALTH_COLORS = {
-  healthy: { color: "#4CAF50", label: "Healthy",  dot: "#4CAF50" },
-  down:    { color: "#f44336", label: "Down",     dot: "#f44336" },
-  unknown: { color: "#9E9E9E", label: "Unknown",  dot: "#9E9E9E" },
-  degraded:{ color: "#FF9800", label: "Degraded", dot: "#FF9800" },
+const HEALTH_META = {
+  healthy: { color: "#16A34A", label: "Healthy" },
+  down:    { color: "#DC2626", label: "Down"    },
+  unknown: { color: "#6B7280", label: "Unknown" },
+  degraded:{ color: "#D97706", label: "Degraded"},
 };
 
-// ── Styles ────────────────────────────────────────────────────────────────────
-const S = {
-  root: {
-    fontFamily: "'IBM Plex Mono', 'JetBrains Mono', 'Fira Code', monospace",
-    background: "transparent",
-    minHeight: "100%",
-    padding: "24px",
-    color: "var(--color-text-primary, #e2e8f0)",
-  },
-  topBar: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: "28px",
-    gap: "16px",
-    flexWrap: "wrap",
-  },
-  title: {
-    fontSize: "22px",
-    fontWeight: "600",
-    letterSpacing: "-0.5px",
-    color: "var(--color-text-primary)",
-    margin: 0,
-  },
-  subtitle: {
-    fontSize: "13px",
-    color: "var(--color-text-secondary)",
-    marginTop: "4px",
-    fontFamily: "inherit",
-  },
-  addBtn: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    background: "#2E7D32",
-    color: "#fff",
-    border: "none",
-    borderRadius: "8px",
-    padding: "10px 20px",
-    fontSize: "13px",
-    fontWeight: "600",
-    fontFamily: "inherit",
-    cursor: "pointer",
-    letterSpacing: "0.3px",
-    transition: "background .15s",
-  },
-  tabs: {
-    display: "flex",
-    gap: "4px",
-    marginBottom: "24px",
-    borderBottom: "1px solid rgba(255,255,255,.08)",
-    paddingBottom: "0",
-  },
-  tab: (active) => ({
-    padding: "8px 18px",
-    fontSize: "13px",
-    fontWeight: active ? "600" : "400",
-    color: active ? "#fff" : "rgba(255,255,255,.45)",
-    background: "none",
-    border: "none",
-    borderBottom: active ? "2px solid #4CAF50" : "2px solid transparent",
-    cursor: "pointer",
-    fontFamily: "inherit",
-    letterSpacing: "0.2px",
-    marginBottom: "-1px",
-    transition: "color .15s",
-  }),
-  // Catalogue grid
-  catSection: { marginBottom: "36px" },
-  catHeader: {
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
-    marginBottom: "14px",
-  },
-  catBadge: (cat) => ({
-    fontSize: "11px",
-    fontWeight: "700",
-    padding: "3px 10px",
-    borderRadius: "20px",
-    background: CATEGORY_COLORS[cat]?.bg || "rgba(255,255,255,.08)",
-    color: CATEGORY_COLORS[cat]?.text || "#fff",
-    border: `1px solid ${CATEGORY_COLORS[cat]?.border || "rgba(255,255,255,.2)"}`,
-    letterSpacing: "0.8px",
-    textTransform: "uppercase",
-    fontFamily: "inherit",
-  }),
-  catLine: (cat) => ({
-    flex: 1,
-    height: "1px",
-    background: CATEGORY_COLORS[cat]?.border || "rgba(255,255,255,.1)",
-    opacity: 0.3,
-  }),
-  grid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))",
-    gap: "12px",
-  },
-  catalogueCard: (selected) => ({
-    background: selected ? "rgba(46,125,50,.15)" : "rgba(255,255,255,.04)",
-    border: selected ? "1.5px solid #4CAF50" : "1px solid rgba(255,255,255,.08)",
-    borderRadius: "10px",
-    padding: "16px",
-    cursor: "pointer",
-    transition: "all .15s",
-    display: "flex",
-    flexDirection: "column",
-    gap: "10px",
-  }),
-  cardTop: {
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
-  },
-  cardIcon: {
-    width: "36px",
-    height: "36px",
-    flexShrink: 0,
-  },
-  cardLabel: {
-    fontSize: "13px",
-    fontWeight: "600",
-    color: "var(--color-text-primary)",
-    lineHeight: "1.3",
-  },
-  cardDesc: {
-    fontSize: "11px",
-    color: "rgba(255,255,255,.4)",
-    lineHeight: "1.5",
-  },
-  // Active list
-  tableWrap: {
-    background: "rgba(255,255,255,.03)",
-    border: "1px solid rgba(255,255,255,.07)",
-    borderRadius: "10px",
-    overflow: "hidden",
-  },
-  tableHead: {
-    display: "grid",
-    gridTemplateColumns: "2fr 1fr 1fr 1.2fr 1fr 100px",
-    padding: "12px 20px",
-    background: "rgba(255,255,255,.04)",
-    borderBottom: "1px solid rgba(255,255,255,.07)",
-    fontSize: "11px",
-    fontWeight: "700",
-    color: "rgba(255,255,255,.35)",
-    letterSpacing: "0.8px",
-    textTransform: "uppercase",
-  },
-  tableRow: {
-    display: "grid",
-    gridTemplateColumns: "2fr 1fr 1fr 1.2fr 1fr 100px",
-    padding: "14px 20px",
-    borderBottom: "1px solid rgba(255,255,255,.04)",
-    alignItems: "center",
-    fontSize: "13px",
-    transition: "background .1s",
-  },
-  healthDot: (h) => ({
-    display: "inline-block",
-    width: "8px",
-    height: "8px",
-    borderRadius: "50%",
-    background: HEALTH_COLORS[h]?.dot || "#9E9E9E",
-    marginRight: "6px",
-    boxShadow: h === "healthy" ? "0 0 5px #4CAF50" : "none",
-  }),
-  rowActions: {
-    display: "flex",
-    gap: "6px",
-    justifyContent: "flex-end",
-  },
-  iconBtn: (color) => ({
-    background: "none",
-    border: `1px solid ${color || "rgba(255,255,255,.15)"}`,
-    borderRadius: "6px",
-    padding: "4px 8px",
-    cursor: "pointer",
-    fontSize: "11px",
-    color: color || "rgba(255,255,255,.5)",
-    fontFamily: "inherit",
-    transition: "all .1s",
-  }),
-  empty: {
-    textAlign: "center",
-    padding: "60px 20px",
-    color: "rgba(255,255,255,.25)",
-    fontSize: "13px",
-  },
-  // Modal
-  overlay: {
-    position: "fixed",
-    inset: 0,
-    background: "rgba(0,0,0,.7)",
-    backdropFilter: "blur(4px)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 1000,
-    padding: "20px",
-  },
-  modal: {
-    background: "#0f1117",
-    border: "1px solid rgba(255,255,255,.1)",
-    borderRadius: "14px",
-    width: "100%",
-    maxWidth: "620px",
-    maxHeight: "90vh",
-    overflow: "hidden",
-    display: "flex",
-    flexDirection: "column",
-    boxShadow: "0 24px 60px rgba(0,0,0,.6)",
-  },
-  modalHead: {
-    padding: "20px 24px 16px",
-    borderBottom: "1px solid rgba(255,255,255,.07)",
-    display: "flex",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: "12px",
-  },
-  modalTitle: {
-    fontSize: "16px",
-    fontWeight: "600",
-    color: "#fff",
-    margin: 0,
-  },
-  modalSubtitle: {
-    fontSize: "12px",
-    color: "rgba(255,255,255,.4)",
-    marginTop: "3px",
-    fontFamily: "inherit",
-  },
-  closeBtn: {
-    background: "none",
-    border: "none",
-    color: "rgba(255,255,255,.4)",
-    cursor: "pointer",
-    fontSize: "20px",
-    lineHeight: 1,
-    padding: "2px 6px",
-    borderRadius: "4px",
-  },
-  modalBody: {
-    padding: "20px 24px",
-    overflowY: "auto",
-    flex: 1,
-  },
-  modalFoot: {
-    padding: "16px 24px",
-    borderTop: "1px solid rgba(255,255,255,.07)",
-    display: "flex",
-    gap: "10px",
-    justifyContent: "flex-end",
-  },
-  formGroup: { marginBottom: "16px" },
-  label: {
-    display: "block",
-    fontSize: "11px",
-    fontWeight: "700",
-    color: "rgba(255,255,255,.4)",
-    letterSpacing: "0.6px",
-    textTransform: "uppercase",
-    marginBottom: "6px",
-    fontFamily: "inherit",
-  },
-  input: {
-    width: "100%",
-    background: "rgba(255,255,255,.05)",
-    border: "1px solid rgba(255,255,255,.12)",
-    borderRadius: "8px",
-    padding: "10px 14px",
-    fontSize: "13px",
-    color: "#fff",
-    fontFamily: "inherit",
-    outline: "none",
-    boxSizing: "border-box",
-    transition: "border-color .15s",
-  },
-  textarea: {
-    width: "100%",
-    background: "rgba(255,255,255,.05)",
-    border: "1px solid rgba(255,255,255,.12)",
-    borderRadius: "8px",
-    padding: "10px 14px",
-    fontSize: "12px",
-    color: "#b0c4de",
-    fontFamily: "'IBM Plex Mono', monospace",
-    outline: "none",
-    boxSizing: "border-box",
-    resize: "vertical",
-    minHeight: "80px",
-  },
-  required: { color: "#f44336", marginLeft: "3px" },
-  hint: {
-    fontSize: "11px",
-    color: "rgba(255,255,255,.3)",
-    marginTop: "4px",
-    lineHeight: "1.4",
-    fontFamily: "inherit",
-  },
-  primaryBtn: {
-    background: "#2E7D32",
-    color: "#fff",
-    border: "none",
-    borderRadius: "8px",
-    padding: "10px 22px",
-    fontSize: "13px",
-    fontWeight: "600",
-    fontFamily: "inherit",
-    cursor: "pointer",
-    transition: "background .15s",
-  },
-  secondaryBtn: {
-    background: "transparent",
-    color: "rgba(255,255,255,.5)",
-    border: "1px solid rgba(255,255,255,.15)",
-    borderRadius: "8px",
-    padding: "10px 22px",
-    fontSize: "13px",
-    fontFamily: "inherit",
-    cursor: "pointer",
-  },
-  webhookBox: {
-    background: "rgba(46,125,50,.1)",
-    border: "1px solid rgba(46,125,50,.35)",
-    borderRadius: "8px",
-    padding: "12px 16px",
-    marginTop: "16px",
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
-    flexWrap: "wrap",
-  },
-  webhookLabel: {
-    fontSize: "11px",
-    color: "rgba(255,255,255,.4)",
-    letterSpacing: "0.5px",
-    textTransform: "uppercase",
-    fontWeight: "700",
-  },
-  webhookUrl: {
-    fontSize: "12px",
-    color: "#80CBC4",
-    fontFamily: "'IBM Plex Mono', monospace",
-    wordBreak: "break-all",
-  },
-  copyBtn: {
-    background: "rgba(255,255,255,.08)",
-    border: "none",
-    borderRadius: "5px",
-    padding: "3px 10px",
-    fontSize: "11px",
-    color: "#aaa",
-    cursor: "pointer",
-    fontFamily: "inherit",
-    flexShrink: 0,
-  },
-  toast: {
-    position: "fixed",
-    bottom: "24px",
-    right: "24px",
-    background: "#1b2a1b",
-    border: "1px solid #4CAF50",
-    borderRadius: "8px",
-    padding: "12px 18px",
-    fontSize: "13px",
-    color: "#4CAF50",
-    fontFamily: "'IBM Plex Mono', monospace",
-    zIndex: 9999,
-    boxShadow: "0 8px 24px rgba(0,0,0,.4)",
-    animation: "fadeUp .2s ease",
-  },
-  searchBar: {
-    background: "rgba(255,255,255,.05)",
-    border: "1px solid rgba(255,255,255,.1)",
-    borderRadius: "8px",
-    padding: "9px 14px",
-    fontSize: "13px",
-    color: "#fff",
-    fontFamily: "inherit",
-    outline: "none",
-    width: "240px",
-  },
-  statusPill: (cat) => ({
-    fontSize: "11px",
-    padding: "2px 10px",
-    borderRadius: "20px",
-    background: CATEGORY_COLORS[cat]?.bg || "rgba(255,255,255,.06)",
-    color: CATEGORY_COLORS[cat]?.text || "rgba(255,255,255,.5)",
-    border: `1px solid ${CATEGORY_COLORS[cat]?.border || "rgba(255,255,255,.1)"}`,
-    letterSpacing: "0.5px",
-  }),
-};
-
-// ── Main Component ────────────────────────────────────────────────────────────
 export default function Integrations() {
-  const [view, setView]               = useState("catalogue"); // catalogue | active
+  const [view, setView]               = useState("catalogue");
   const [catalogue, setCatalogue]     = useState({});
   const [integrations, setIntegrations] = useState([]);
   const [loading, setLoading]         = useState(false);
@@ -529,7 +132,6 @@ export default function Integrations() {
       .catch(() => {});
   }, []);
 
-  // Load active integrations
   const loadIntegrations = useCallback(() => {
     setLoading(true);
     fetch(`${API}/api/v1/integrations/`)
@@ -545,10 +147,9 @@ export default function Integrations() {
 
   const showToast = (msg, type = "success") => {
     setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
+    setTimeout(() => setToast(null), 3500);
   };
 
-  // Open add modal
   const openAdd = (toolItem) => {
     setSelectedTool(toolItem);
     setForm({ name: toolItem.label, description: toolItem.description });
@@ -563,7 +164,6 @@ export default function Integrations() {
     setCreds({});
   };
 
-  // Submit new integration
   const submitIntegration = async () => {
     if (!selectedTool) return;
     setSaving(true);
@@ -579,7 +179,7 @@ export default function Integrations() {
         }),
       });
       const data = await resp.json();
-      if (!resp.ok) throw new Error(data.detail || "Failed");
+      if (!resp.ok) throw new Error(data.detail || "Failed to save");
       showToast(`✓ ${form.name} added successfully`);
       closeModal();
       loadIntegrations();
@@ -591,7 +191,6 @@ export default function Integrations() {
     }
   };
 
-  // Delete
   const deleteIntegration = async (id, name) => {
     if (!window.confirm(`Remove "${name}"?`)) return;
     try {
@@ -604,7 +203,6 @@ export default function Integrations() {
     }
   };
 
-  // Health check
   const runHealthCheck = async (id) => {
     setHealthChecking(p => ({ ...p, [id]: true }));
     try {
@@ -619,13 +217,12 @@ export default function Integrations() {
     }
   };
 
-  // Copy webhook URL
   const copyWebhook = (url) => {
     navigator.clipboard.writeText(window.location.origin + url);
-    showToast("✓ Webhook URL copied");
+    showToast("✓ Webhook URL copied to clipboard");
   };
 
-  // ── Filter catalogue by search
+  // Filter catalogue
   const filteredCatalogue = {};
   Object.entries(catalogue).forEach(([cat, items]) => {
     const f = items.filter(i =>
@@ -642,49 +239,80 @@ export default function Integrations() {
     (a, b) => catOrder.indexOf(a) - catOrder.indexOf(b)
   );
 
+  const totalTypes = Object.values(catalogue).flat().length;
+
   return (
-    <div style={S.root}>
+    <div style={{ padding: "24px", minHeight: "100%", fontFamily: "inherit" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&display=swap');
-        .int-card:hover { background: rgba(255,255,255,.07) !important; border-color: rgba(255,255,255,.18) !important; }
-        .int-card.sel:hover { background: rgba(46,125,50,.2) !important; }
-        .int-row:hover { background: rgba(255,255,255,.03) !important; }
-        .add-btn:hover { background: #388E3C !important; }
-        .icon-btn:hover { opacity: .8; background: rgba(255,255,255,.06) !important; }
-        .input-f:focus { border-color: rgba(46,125,50,.6) !important; }
-        @keyframes fadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
+        .int-card:hover { background: #F0FDF4 !important; border-color: #86EFAC !important; }
+        .int-card.sel { background: #F0FDF4 !important; border-color: #22C55E !important; }
+        .int-row:hover { background: #F9FAFB !important; }
+        .int-tab-active { border-bottom: 2px solid #16A34A !important; color: #16A34A !important; font-weight: 600 !important; }
+        .int-tab { border-bottom: 2px solid transparent; color: #6B7280; font-weight: 400; }
+        .int-tab:hover { color: #374151 !important; }
+        @keyframes slideUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+        .int-input:focus { outline: none; border-color: #22C55E !important; box-shadow: 0 0 0 3px rgba(34,197,94,.1); }
+        .int-btn-primary { background: #16A34A; color: #fff; border: none; border-radius: 7px; padding: 9px 20px; font-size: 13px; font-weight: 600; cursor: pointer; transition: background .15s; font-family: inherit; }
+        .int-btn-primary:hover { background: #15803D; }
+        .int-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+        .int-btn-secondary { background: #fff; color: #374151; border: 1px solid #D1D5DB; border-radius: 7px; padding: 9px 20px; font-size: 13px; cursor: pointer; font-family: inherit; transition: background .15s; }
+        .int-btn-secondary:hover { background: #F9FAFB; }
+        .int-action-btn { background: #fff; border: 1px solid #E5E7EB; border-radius: 6px; padding: 5px 10px; font-size: 11px; cursor: pointer; font-family: inherit; transition: all .1s; color: #374151; }
+        .int-action-btn:hover { background: #F9FAFB; border-color: #D1D5DB; }
+        .int-delete-btn { background: #fff; border: 1px solid #FECACA; border-radius: 6px; padding: 5px 10px; font-size: 11px; cursor: pointer; font-family: inherit; color: #DC2626; transition: all .1s; }
+        .int-delete-btn:hover { background: #FFF1F2; }
       `}</style>
 
       {/* ── Top bar ── */}
-      <div style={S.topBar}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px", gap: "16px", flexWrap: "wrap" }}>
         <div>
-          <h2 style={S.title}>Integrations</h2>
-          <p style={S.subtitle}>
-            {Object.values(catalogue).flat().length} device types available &nbsp;·&nbsp;{" "}
-            {integrations.filter(i => i.is_active).length} active
+          <h2 style={{ fontSize: "20px", fontWeight: "700", color: "var(--text-primary, #111827)", margin: 0 }}>
+            Integrations
+          </h2>
+          <p style={{ fontSize: "13px", color: "var(--text-secondary, #6B7280)", marginTop: "3px" }}>
+            {totalTypes} device types available &nbsp;·&nbsp; {integrations.filter(i => i.is_active).length} active
           </p>
         </div>
-        <div style={{ display:"flex", gap:"10px", alignItems:"center" }}>
+        <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
           <input
             placeholder="Search device types…"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            style={S.searchBar}
-            className="input-f"
+            className="int-input"
+            style={{
+              border: "1px solid #D1D5DB", borderRadius: "7px", padding: "8px 14px",
+              fontSize: "13px", color: "#111827", width: "220px",
+              background: "#fff", fontFamily: "inherit"
+            }}
           />
-          <button style={S.addBtn} className="add-btn" onClick={() => setView("catalogue")}>
-            <span style={{ fontSize:"16px", lineHeight:1 }}>+</span> Add Integration
+          <button
+            className="int-btn-primary"
+            onClick={() => setView("catalogue")}
+          >
+            + Add Integration
           </button>
         </div>
       </div>
 
       {/* ── Tabs ── */}
-      <div style={S.tabs}>
-        {[["catalogue","Device Catalogue"], ["active","Active Integrations"]].map(([v, l]) => (
-          <button key={v} style={S.tab(view === v)} onClick={() => setView(v)}>
+      <div style={{ display: "flex", gap: "0", marginBottom: "24px", borderBottom: "1px solid #E5E7EB" }}>
+        {[["catalogue", "Device Catalogue"], ["active", "Active Integrations"]].map(([v, l]) => (
+          <button
+            key={v}
+            className={view === v ? "int-tab-active int-tab" : "int-tab"}
+            onClick={() => setView(v)}
+            style={{
+              padding: "10px 20px", fontSize: "13px", background: "none",
+              border: "none", cursor: "pointer", marginBottom: "-1px",
+              fontFamily: "inherit", transition: "color .15s",
+            }}
+          >
             {l}
             {v === "active" && integrations.length > 0 && (
-              <span style={{ marginLeft:"6px", background:"rgba(76,175,80,.2)", color:"#4CAF50", borderRadius:"10px", padding:"1px 7px", fontSize:"10px" }}>
+              <span style={{
+                marginLeft: "7px", background: "#DCFCE7", color: "#15803D",
+                borderRadius: "10px", padding: "1px 8px", fontSize: "11px", fontWeight: "600"
+              }}>
                 {integrations.length}
               </span>
             )}
@@ -696,37 +324,63 @@ export default function Integrations() {
       {view === "catalogue" && (
         <div>
           {sortedCats.length === 0 && (
-            <div style={S.empty}>No device types match your search.</div>
-          )}
-          {sortedCats.map(cat => (
-            <div key={cat} style={S.catSection}>
-              <div style={S.catHeader}>
-                <span style={S.catBadge(cat)}>{cat}</span>
-                <div style={S.catLine(cat)} />
-              </div>
-              <div style={S.grid}>
-                {filteredCatalogue[cat].map(item => (
-                  <div
-                    key={item.tool_id}
-                    className={`int-card${selectedTool?.tool_id === item.tool_id ? " sel" : ""}`}
-                    style={S.catalogueCard(selectedTool?.tool_id === item.tool_id)}
-                    onClick={() => openAdd(item)}
-                  >
-                    <div style={S.cardTop}>
-                      <div style={S.cardIcon}>{ICONS[item.icon] || ICONS.netbox}</div>
-                      <span style={S.cardLabel}>{item.label}</span>
-                    </div>
-                    <p style={S.cardDesc}>{item.description}</p>
-                    {item.webhook_url_template && (
-                      <span style={{ fontSize:"10px", color:"rgba(76,175,80,.7)", letterSpacing:"0.3px" }}>
-                        ⚡ Webhook supported
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
+            <div style={{ textAlign: "center", padding: "60px 20px", color: "#9CA3AF", fontSize: "14px" }}>
+              No device types match your search.
             </div>
-          ))}
+          )}
+          {sortedCats.map(cat => {
+            const cs = CAT_STYLES[cat] || CAT_STYLES.Network;
+            return (
+              <div key={cat} style={{ marginBottom: "32px" }}>
+                {/* Category header */}
+                <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "14px" }}>
+                  <span style={{
+                    fontSize: "11px", fontWeight: "700", padding: "3px 12px",
+                    borderRadius: "20px", background: cs.bg, color: cs.text,
+                    border: `1px solid ${cs.border}`, letterSpacing: "0.7px",
+                    textTransform: "uppercase"
+                  }}>
+                    {cat}
+                  </span>
+                  <div style={{ flex: 1, height: "1px", background: cs.border }} />
+                </div>
+
+                {/* Cards grid */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "12px" }}>
+                  {filteredCatalogue[cat].map(item => (
+                    <div
+                      key={item.tool_id}
+                      className="int-card"
+                      onClick={() => openAdd(item)}
+                      style={{
+                        background: "#fff", border: "1px solid #E5E7EB",
+                        borderRadius: "10px", padding: "16px", cursor: "pointer",
+                        transition: "all .15s", display: "flex", flexDirection: "column", gap: "8px",
+                        boxShadow: "0 1px 3px rgba(0,0,0,.04)"
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                        <div style={{ width: "36px", height: "36px", flexShrink: 0 }}>
+                          {ICONS[item.icon] || ICONS.netbox}
+                        </div>
+                        <span style={{ fontSize: "13px", fontWeight: "600", color: "#111827", lineHeight: "1.3" }}>
+                          {item.label}
+                        </span>
+                      </div>
+                      <p style={{ fontSize: "11px", color: "#6B7280", lineHeight: "1.5", margin: 0 }}>
+                        {item.description}
+                      </p>
+                      {item.webhook_url_template && (
+                        <span style={{ fontSize: "10px", color: "#16A34A", fontWeight: "500" }}>
+                          ⚡ Webhook supported
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -734,85 +388,105 @@ export default function Integrations() {
       {view === "active" && (
         <div>
           {loading ? (
-            <div style={S.empty}>Loading integrations…</div>
+            <div style={{ textAlign: "center", padding: "60px 20px", color: "#9CA3AF", fontSize: "14px" }}>
+              Loading integrations…
+            </div>
           ) : integrations.length === 0 ? (
-            <div style={S.empty}>
+            <div style={{ textAlign: "center", padding: "60px 20px", color: "#9CA3AF", fontSize: "14px" }}>
               No integrations onboarded yet.{" "}
               <span
-                style={{ color:"#4CAF50", cursor:"pointer", textDecoration:"underline" }}
+                style={{ color: "#16A34A", cursor: "pointer", textDecoration: "underline" }}
                 onClick={() => setView("catalogue")}
               >
                 Add your first device
               </span>
             </div>
           ) : (
-            <div style={S.tableWrap}>
-              <div style={S.tableHead}>
-                <span>Name</span>
-                <span>Type</span>
-                <span>Category</span>
-                <span>Health</span>
-                <span>Webhook</span>
-                <span style={{ textAlign:"right" }}>Actions</span>
+            <div style={{ background: "#fff", border: "1px solid #E5E7EB", borderRadius: "10px", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,.04)" }}>
+              {/* Table header */}
+              <div style={{
+                display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1.2fr 1fr 120px",
+                padding: "11px 20px", background: "#F9FAFB",
+                borderBottom: "1px solid #E5E7EB", fontSize: "11px",
+                fontWeight: "700", color: "#6B7280", letterSpacing: "0.6px", textTransform: "uppercase"
+              }}>
+                <span>Name</span><span>Type</span><span>Category</span>
+                <span>Health</span><span>Webhook</span>
+                <span style={{ textAlign: "right" }}>Actions</span>
               </div>
-              {integrations.map(integ => {
-                const h = HEALTH_COLORS[integ.health_status] || HEALTH_COLORS.unknown;
+
+              {integrations.map((integ, idx) => {
+                const hm = HEALTH_META[integ.health_status] || HEALTH_META.unknown;
+                const cs = CAT_STYLES[integ.category] || CAT_STYLES.Network;
                 return (
-                  <div key={integ.id} className="int-row" style={S.tableRow}>
+                  <div
+                    key={integ.id}
+                    className="int-row"
+                    style={{
+                      display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1.2fr 1fr 120px",
+                      padding: "13px 20px", borderBottom: idx < integrations.length - 1 ? "1px solid #F3F4F6" : "none",
+                      alignItems: "center", fontSize: "13px", transition: "background .1s"
+                    }}
+                  >
                     {/* Name */}
                     <div>
-                      <div style={{ fontWeight:"600", color:"#fff", fontSize:"13px" }}>{integ.name}</div>
-                      <div style={{ fontSize:"11px", color:"rgba(255,255,255,.3)", marginTop:"2px" }}>
+                      <div style={{ fontWeight: "600", color: "#111827" }}>{integ.name}</div>
+                      <div style={{ fontSize: "11px", color: "#9CA3AF", marginTop: "2px" }}>
                         {integ.base_url || "—"}
                       </div>
                     </div>
-                    {/* Tool */}
-                    <div style={{ fontSize:"12px", color:"rgba(255,255,255,.5)" }}>
+                    {/* Tool ID */}
+                    <div style={{ fontSize: "12px", color: "#374151", fontFamily: "monospace" }}>
                       {integ.tool_id}
                     </div>
-                    {/* Category */}
+                    {/* Category badge */}
                     <div>
-                      <span style={S.statusPill(integ.category)}>{integ.category}</span>
+                      <span style={{
+                        fontSize: "11px", padding: "2px 10px", borderRadius: "20px",
+                        background: cs.bg, color: cs.text, border: `1px solid ${cs.border}`,
+                        fontWeight: "600"
+                      }}>
+                        {integ.category}
+                      </span>
                     </div>
                     {/* Health */}
-                    <div style={{ display:"flex", alignItems:"center", fontSize:"12px" }}>
-                      <span style={S.healthDot(integ.health_status)} />
-                      <span style={{ color: h.color }}>{h.label}</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px" }}>
+                      <span style={{
+                        width: "8px", height: "8px", borderRadius: "50%",
+                        background: hm.color, display: "inline-block", flexShrink: 0,
+                        boxShadow: integ.health_status === "healthy" ? `0 0 5px ${hm.color}` : "none"
+                      }} />
+                      <span style={{ color: hm.color, fontWeight: "500" }}>{hm.label}</span>
                       {integ.last_health_check && (
-                        <span style={{ fontSize:"10px", color:"rgba(255,255,255,.25)", marginLeft:"6px" }}>
-                          {new Date(integ.last_health_check).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}
+                        <span style={{ color: "#9CA3AF", fontSize: "10px" }}>
+                          {new Date(integ.last_health_check).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                         </span>
                       )}
                     </div>
                     {/* Webhook */}
                     <div>
                       {integ.webhook_url ? (
-                        <button
-                          style={{ ...S.copyBtn, color:"#80CBC4", fontFamily:"inherit" }}
-                          onClick={() => copyWebhook(integ.webhook_url)}
-                        >
+                        <button className="int-action-btn" onClick={() => copyWebhook(integ.webhook_url)}>
                           Copy URL
                         </button>
                       ) : (
-                        <span style={{ fontSize:"11px", color:"rgba(255,255,255,.2)" }}>—</span>
+                        <span style={{ color: "#D1D5DB", fontSize: "12px" }}>—</span>
                       )}
                     </div>
                     {/* Actions */}
-                    <div style={S.rowActions}>
+                    <div style={{ display: "flex", gap: "6px", justifyContent: "flex-end" }}>
                       <button
-                        className="icon-btn"
-                        style={S.iconBtn("#00BCF2")}
+                        className="int-action-btn"
                         onClick={() => runHealthCheck(integ.id)}
                         disabled={healthChecking[integ.id]}
                         title="Run health check"
                       >
-                        {healthChecking[integ.id] ? "…" : "⟳"}
+                        {healthChecking[integ.id] ? "…" : "⟳ Check"}
                       </button>
                       <button
-                        className="icon-btn"
-                        style={S.iconBtn("#f44336")}
+                        className="int-delete-btn"
                         onClick={() => deleteIntegration(integ.id, integ.name)}
-                        title="Remove integration"
+                        title="Remove"
                       >
                         ✕
                       </button>
@@ -827,109 +501,173 @@ export default function Integrations() {
 
       {/* ── Add Integration Modal ── */}
       {showModal && selectedTool && (
-        <div style={S.overlay} onClick={e => e.target === e.currentTarget && closeModal()}>
-          <div style={S.modal}>
-            <div style={S.modalHead}>
-              <div>
-                <h3 style={S.modalTitle}>Add {selectedTool.label}</h3>
-                <p style={S.modalSubtitle}>{selectedTool.description}</p>
+        <div
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,.45)",
+            backdropFilter: "blur(4px)", display: "flex", alignItems: "center",
+            justifyContent: "center", zIndex: 1000, padding: "20px"
+          }}
+          onClick={e => e.target === e.currentTarget && closeModal()}
+        >
+          <div style={{
+            background: "#fff", borderRadius: "14px", width: "100%", maxWidth: "560px",
+            maxHeight: "90vh", overflow: "hidden", display: "flex", flexDirection: "column",
+            boxShadow: "0 20px 60px rgba(0,0,0,.2)", animation: "slideUp .2s ease"
+          }}>
+            {/* Modal header */}
+            <div style={{
+              padding: "20px 24px 16px", borderBottom: "1px solid #E5E7EB",
+              display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px"
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <div style={{ width: "40px", height: "40px", flexShrink: 0 }}>
+                  {ICONS[selectedTool.icon] || ICONS.netbox}
+                </div>
+                <div>
+                  <h3 style={{ fontSize: "16px", fontWeight: "700", color: "#111827", margin: 0 }}>
+                    Add {selectedTool.label}
+                  </h3>
+                  <p style={{ fontSize: "12px", color: "#6B7280", marginTop: "2px" }}>
+                    {selectedTool.description}
+                  </p>
+                </div>
               </div>
-              <button style={S.closeBtn} onClick={closeModal}>×</button>
+              <button
+                onClick={closeModal}
+                style={{
+                  background: "none", border: "none", cursor: "pointer",
+                  fontSize: "20px", color: "#9CA3AF", padding: "2px 6px", borderRadius: "4px", lineHeight: 1
+                }}
+              >×</button>
             </div>
 
-            <div style={S.modalBody}>
-              {/* Basic info */}
-              <div style={S.formGroup}>
-                <label style={S.label}>Integration Name <span style={S.required}>*</span></label>
+            {/* Modal body */}
+            <div style={{ padding: "20px 24px", overflowY: "auto", flex: 1 }}>
+              {/* Name */}
+              <div style={{ marginBottom: "14px" }}>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: "600", color: "#374151", marginBottom: "5px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                  Integration Name <span style={{ color: "#DC2626" }}>*</span>
+                </label>
                 <input
-                  className="input-f"
-                  style={S.input}
+                  className="int-input"
                   value={form.name}
                   onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
                   placeholder={`My ${selectedTool.label}`}
-                />
-              </div>
-              <div style={S.formGroup}>
-                <label style={S.label}>Description</label>
-                <input
-                  className="input-f"
-                  style={S.input}
-                  value={form.description}
-                  onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
-                  placeholder="Optional description"
+                  style={{
+                    width: "100%", border: "1px solid #D1D5DB", borderRadius: "7px",
+                    padding: "9px 13px", fontSize: "13px", color: "#111827",
+                    fontFamily: "inherit", boxSizing: "border-box"
+                  }}
                 />
               </div>
 
-              {/* Divider */}
-              <div style={{ borderTop:"1px solid rgba(255,255,255,.07)", margin:"18px 0 16px", position:"relative" }}>
-                <span style={{ position:"absolute", top:"-9px", left:"12px", background:"#0f1117", padding:"0 8px", fontSize:"10px", color:"rgba(255,255,255,.25)", letterSpacing:"0.7px", textTransform:"uppercase" }}>
+              {/* Description */}
+              <div style={{ marginBottom: "18px" }}>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: "600", color: "#374151", marginBottom: "5px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                  Description
+                </label>
+                <input
+                  className="int-input"
+                  value={form.description}
+                  onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
+                  placeholder="Optional description"
+                  style={{
+                    width: "100%", border: "1px solid #D1D5DB", borderRadius: "7px",
+                    padding: "9px 13px", fontSize: "13px", color: "#111827",
+                    fontFamily: "inherit", boxSizing: "border-box"
+                  }}
+                />
+              </div>
+
+              {/* Credentials divider */}
+              <div style={{ borderTop: "1px solid #F3F4F6", margin: "4px 0 16px", position: "relative" }}>
+                <span style={{
+                  position: "absolute", top: "-9px", left: "0", background: "#fff",
+                  paddingRight: "10px", fontSize: "11px", color: "#9CA3AF",
+                  letterSpacing: "0.5px", textTransform: "uppercase", fontWeight: "600"
+                }}>
                   Credentials
                 </span>
               </div>
 
               {/* Dynamic credential fields */}
               {selectedTool.credential_fields?.map(field => (
-                <div key={field.key} style={S.formGroup}>
-                  <label style={S.label}>
+                <div key={field.key} style={{ marginBottom: "14px" }}>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: "600", color: "#374151", marginBottom: "5px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
                     {field.label}
-                    {field.required && <span style={S.required}>*</span>}
+                    {field.required && <span style={{ color: "#DC2626", marginLeft: "3px" }}>*</span>}
                   </label>
                   {field.type === "textarea" ? (
                     <textarea
-                      className="input-f"
-                      style={S.textarea}
+                      className="int-input"
                       value={creds[field.key] || ""}
                       onChange={e => setCreds(p => ({ ...p, [field.key]: e.target.value }))}
                       placeholder={`Paste ${field.label.toLowerCase()} here`}
+                      style={{
+                        width: "100%", border: "1px solid #D1D5DB", borderRadius: "7px",
+                        padding: "9px 13px", fontSize: "12px", color: "#111827",
+                        fontFamily: "monospace", boxSizing: "border-box",
+                        resize: "vertical", minHeight: "80px"
+                      }}
                     />
                   ) : (
                     <input
-                      className="input-f"
-                      style={S.input}
+                      className="int-input"
                       type={field.type || "text"}
                       value={creds[field.key] || ""}
                       onChange={e => setCreds(p => ({ ...p, [field.key]: e.target.value }))}
                       placeholder={field.default || ""}
+                      style={{
+                        width: "100%", border: "1px solid #D1D5DB", borderRadius: "7px",
+                        padding: "9px 13px", fontSize: "13px", color: "#111827",
+                        fontFamily: "inherit", boxSizing: "border-box"
+                      }}
                     />
                   )}
                   {field.key === "snmp_community" && (
-                    <p style={S.hint}>Make sure SNMP is enabled on the device and this community string matches.</p>
+                    <p style={{ fontSize: "11px", color: "#6B7280", marginTop: "4px" }}>
+                      Make sure SNMP is enabled on the device and this community string matches.
+                    </p>
                   )}
                   {field.key === "services" && (
-                    <p style={S.hint}>e.g. haproxy, sshd, firewalld — leave blank to monitor all.</p>
-                  )}
-                  {field.key === "ssh_key" && (
-                    <p style={S.hint}>Paste the private key content (-----BEGIN ... PRIVATE KEY-----).</p>
+                    <p style={{ fontSize: "11px", color: "#6B7280", marginTop: "4px" }}>
+                      e.g. haproxy, sshd, firewalld — leave blank to monitor all.
+                    </p>
                   )}
                   {field.key === "webhook_secret" && (
-                    <p style={S.hint}>Optional. Configure this secret in the external system to sign webhook payloads (HMAC-SHA512).</p>
+                    <p style={{ fontSize: "11px", color: "#6B7280", marginTop: "4px" }}>
+                      Optional. Configure in the external system to sign payloads (HMAC-SHA512).
+                    </p>
                   )}
                 </div>
               ))}
 
-              {/* Webhook info box */}
+              {/* Webhook info */}
               {selectedTool.webhook_url_template && (
-                <div style={S.webhookBox}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={S.webhookLabel}>Webhook URL (after save)</div>
-                    <div style={S.webhookUrl}>
-                      {window.location.origin}/api/v1/webhooks/{"<integration-id>"}
-                    </div>
-                    <p style={{ ...S.hint, marginTop:"6px" }}>
-                      Configure this URL in {selectedTool.label} to push events in real-time.
-                    </p>
+                <div style={{
+                  background: "#F0FDF4", border: "1px solid #BBF7D0", borderRadius: "8px",
+                  padding: "12px 16px", marginTop: "8px"
+                }}>
+                  <div style={{ fontSize: "11px", fontWeight: "700", color: "#15803D", marginBottom: "4px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                    Webhook URL (generated after save)
                   </div>
+                  <div style={{ fontSize: "12px", color: "#166534", fontFamily: "monospace" }}>
+                    {window.location.origin}/api/v1/webhooks/&lt;integration-id&gt;
+                  </div>
+                  <p style={{ fontSize: "11px", color: "#4B7A57", marginTop: "6px" }}>
+                    Configure this URL in {selectedTool.label} to receive real-time events.
+                  </p>
                 </div>
               )}
             </div>
 
-            <div style={S.modalFoot}>
-              <button style={S.secondaryBtn} onClick={closeModal}>Cancel</button>
+            {/* Modal footer */}
+            <div style={{ padding: "16px 24px", borderTop: "1px solid #E5E7EB", display: "flex", gap: "10px", justifyContent: "flex-end" }}>
+              <button className="int-btn-secondary" onClick={closeModal}>Cancel</button>
               <button
-                style={{ ...S.primaryBtn, opacity: saving ? 0.7 : 1 }}
+                className="int-btn-primary"
                 onClick={submitIntegration}
                 disabled={saving || !form.name}
-                className="add-btn"
               >
                 {saving ? "Saving…" : `Add ${selectedTool.label}`}
               </button>
@@ -938,13 +676,16 @@ export default function Integrations() {
         </div>
       )}
 
-      {/* ── Toast ── */}
+      {/* ── Toast notification ── */}
       {toast && (
         <div style={{
-          ...S.toast,
-          borderColor: toast.type === "error" ? "#f44336" : "#4CAF50",
-          color:        toast.type === "error" ? "#f44336" : "#4CAF50",
-          background:   toast.type === "error" ? "#1a0d0d" : "#1b2a1b",
+          position: "fixed", bottom: "24px", right: "24px",
+          background: toast.type === "error" ? "#FFF1F2" : "#F0FDF4",
+          border: `1px solid ${toast.type === "error" ? "#FECACA" : "#BBF7D0"}`,
+          borderRadius: "8px", padding: "12px 18px", fontSize: "13px",
+          color: toast.type === "error" ? "#DC2626" : "#15803D",
+          zIndex: 9999, boxShadow: "0 4px 16px rgba(0,0,0,.1)",
+          animation: "slideUp .2s ease", fontWeight: "500"
         }}>
           {toast.msg}
         </div>
