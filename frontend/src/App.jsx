@@ -5,6 +5,7 @@ import IncidentList from './components/IncidentList.jsx'
 import RemediationPanel from './components/RemediationPanel.jsx'
 import NocAI from './components/NocAI.jsx'
 import gruveLogo from './assets/gruve-logo.png'
+import Integrations from './components/Integrations.jsx'
 
 const API = import.meta.env.VITE_API_BASE_URL || ''
 
@@ -49,6 +50,7 @@ export default function App() {
     { id: 'incidents',   icon: Bell,          label: 'Incidents',   badge: openCount },
     { id: 'nocai',      icon: Bot,           label: 'Gruve AI'  },
     { id: 'remediation', icon: Zap,           label: 'Remediation' },
+    { id: 'integrations', icon: Terminal,      label: 'Integrations' },
   ]
 
   return (
@@ -124,6 +126,7 @@ export default function App() {
         {activeTab === 'incidents'   && <IncidentList incidents={incidents} onSelect={handleSelectIncident}/>}
         {activeTab === 'nocai'       && <NocAI api={API} pendingCmd={pendingCmd} onCmdConsumed={() => setPendingCmd(null)}/>}
         {activeTab === 'remediation' && <RemediationPanel incident={selectedIncident} api={API}/>}
+        {activeTab === 'integrations' && <Integrations />}
       </main>
     </div>
   )

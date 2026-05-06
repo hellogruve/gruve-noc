@@ -20,6 +20,11 @@ from app.services.mongo import mongo_service
 from app.agents.incident import incident_agent
 from app.agents.snmp_agent import snmp_agent
 from app.services.snmp_receiver import start_snmp_receiver
+from app.api.integrations import router as integrations_router
+from app.api.integrations import webhook_router
+
+
+
 
 logging.basicConfig(
     level=logging.INFO,
@@ -94,3 +99,5 @@ app.include_router(health_router)
 app.include_router(api_router, prefix="/api/v1")
 app.include_router(ops_router, prefix="/api/v1")
 app.include_router(ai_router, prefix="/api/v1")
+app.include_router(integrations_router, prefix="/api/v1")
+app.include_router(webhook_router, prefix="/api/v1")
