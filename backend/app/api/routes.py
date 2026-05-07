@@ -354,7 +354,7 @@ async def approve_remediation(request: ApprovalRequest):
         eda_payload = {
             "host":            incident.get("device_name"),
             "issue":           "service_down",
-            "service":         incident.get("service_name", "haproxy"),
+            "service":         incident.get("service_name", ""),
             "severity":        incident.get("severity", "critical"),
             "incident_id":     str(incident.get("_id")),
             "snow_ticket":     incident.get("snow_ticket_id", "")
