@@ -40,39 +40,33 @@ def parse_snmp_trap(data: bytes, addr) -> dict:
         "received_at": datetime.now(timezone.utc).isoformat()
     }
 
-    # Method 1 — pysnmp v7 decode
+    # Method 1 — pysnmp v7 decode (correct API)
     try:
-        from pysnmp.hlapi.v1arch.asyncio import (
-            SnmpEngine, CommunityData, UdpTransportTarget,
-            ContextData, ObjectType, ObjectIdentity
-        )
-        from pysnmp.proto.rfc1902 import OctetString
-        from pysnmp.codec.native import codec
-        from pysnmp.proto import api as snmp_api
-
-        # Use low-level ASN.1 decoder for v7
-        from pyasn1.codec.ber import decoder as ber_decoder
-        from pysnmp.proto import rfc1157, rfc1902, rfc1905
         from pysnmp.proto.api import v2c
+        from pyasn1.codec.ber import decoder as ber_decoder
 
         msg, _ = ber_decoder.decode(data, asn1Spec=v2c.Message())
-        pdu = msg.getComponentByPosition(2)
+        pdu = msg.getComponentByName('data').getComponentByName('snmpV2-trap')
 
         for varBind in pdu.getComponentByName('variable-bindings'):
-            oid_str = str(varBind.getComponentByPosition(0)).lstrip('.')
-            val = varBind.getComponentByPosition(1)
-            # Extract the actual value from CHOICE type
-            for comp_name in val.componentType.keys():
-                comp = val.getComponentByName(comp_name)
-                if comp.hasValue():
-                    str_val = str(comp).strip()
-                    key = OID_MAP.get(oid_str)
-                    if key:
-                        event[key] = str_val
-                    break
+            oid_str = str(varBind[0]).lstrip('.')
+            val_wrapper = varBind[1]
+            # val_wrapper is a CHOICE — get the active component
+            for comp_name in val_wrapper.componentType.keys():
+                try:
+                    comp = val_wrapper.getComponentByName(comp_name)
+                    if comp.hasValue():
+                        str_val = str(comp).strip()
+                        if str_val:
+                            key = OID_MAP.get(oid_str)
+                            if key:
+                                event[key] = str_val
+                        break
+                except Exception:
+                    continue
 
-        if event.get("incident_type"):
-            logger.debug(f"Parsed via pysnmp v7: {event}")
+        if event.get('incident_type'):
+            logger.info(f"Parsed via pysnmp v7: hostname={event.get('hostname')} service={event.get('service_name')}")
             return event
     except Exception as e:
         logger.debug(f"pysnmp v7 decode failed: {e}")
