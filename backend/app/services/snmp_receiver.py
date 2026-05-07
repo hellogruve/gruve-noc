@@ -56,11 +56,17 @@ def parse_snmp_trap(data: bytes, addr) -> dict:
                 try:
                     comp = val_wrapper.getComponentByName(comp_name)
                     if comp.hasValue():
-                        str_val = str(comp).strip()
-                        if str_val:
+                        # Extract actual string value from ASN.1 object
+                        raw_val = str(comp).strip()
+                        # Handle OctetString — get bytes and decode
+                        try:
+                            actual_val = bytes(comp).decode("utf-8").strip()
+                        except Exception:
+                            actual_val = raw_val
+                        if actual_val:
                             key = OID_MAP.get(oid_str)
                             if key:
-                                event[key] = str_val
+                                event[key] = actual_val
                         break
                 except Exception:
                     continue
