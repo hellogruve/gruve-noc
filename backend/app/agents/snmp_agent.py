@@ -26,6 +26,29 @@ class SNMPAgent:
         host_ip       = event.get("host_ip", event.get("source_ip", ""))
         severity      = event.get("severity", "critical")
 
+        # If hostname looks like an IP (SNMP parse failed), resolve via integrations collection
+        import re
+        if re.match(r"^\d+\.\d+\.\d+\.\d+$", hostname) or hostname == "unknown":
+            source_ip = event.get("source_ip", "")
+            # Try matching source_ip or host_ip against registered integrations
+            for ip_to_check in [source_ip, host_ip, hostname]:
+                if not ip_to_check:
+                    continue
+                integ = await mongo_service._db["integrations"].find_one({
+                    "credentials.host": ip_to_check,
+                    "category": "VM"
+                })
+                if integ:
+                    hostname = integ.get("name", hostname)
+                    logger.info(f"Resolved IP {ip_to_check} -> integration name: {hostname}")
+                    # Also get services from integration if service_name is empty
+                    if not service_name:
+                        services = integ.get("credentials", {}).get("services", "")
+                        if services:
+                            service_name = services.split(",")[0].strip()
+                            logger.info(f"Using first configured service: {service_name}")
+                    break
+
         logger.info(f"Processing SNMP trap: {incident_type} | {hostname} | {service_name}")
 
         # Handle service recovery

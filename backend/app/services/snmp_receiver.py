@@ -92,7 +92,7 @@ def parse_snmp_trap(data: bytes, addr) -> dict:
                 elif i == 1:
                     event["hostname"]     = strings[i - 1]
                 event["event_type"] = s
-                if i + 1 < len(strings) and re.match(r'^\d+\.\d+\.\d+\.\d+$', strings[i + 1]):
+                if i + 1 < len(strings) and re.match(r'^\d+\.\d+\.\d+\.\d+$', strings[i + 1]) and not strings[i + 1].startswith('100.64.'):
                     event["host_ip"] = strings[i + 1]
                     if i + 2 < len(strings) and strings[i + 2] in SEVERITY_VALS:
                         event["severity"] = strings[i + 2]
@@ -110,7 +110,7 @@ def parse_snmp_trap(data: bytes, addr) -> dict:
                 event["incident_type"] = s
             if not event.get("severity") and s in SEVERITY_VALS:
                 event["severity"] = s
-            if not event.get("host_ip") and re.match(r'^\d+\.\d+\.\d+\.\d+$', s):
+            if not event.get("host_ip") and re.match(r'^\d+\.\d+\.\d+\.\d+$', s) and not s.startswith("100.64."):
                 event["host_ip"] = s
 
         if event.get("incident_type") or event.get("event_type"):
