@@ -128,7 +128,7 @@ DEVICE_CATALOGUE = {
         "connection_type": "ssh", "icon": "linux",
         "description": "Any Linux server monitored via SSH + SNMP",
         "credential_fields": [
-            {"key": "host",           "label": "IP / Hostname",                    "type": "text",     "required": True},
+            {"key": "host",           "label": "IP Address (e.g. 10.7.51.136)",    "type": "text",     "required": True, "hint": "Enter IP address only — must match what hostname command returns on the VM"},
             {"key": "username",       "label": "Root / Admin Username",             "type": "text",     "required": True},
             {"key": "password",       "label": "Root / Admin Password",             "type": "password", "required": False},
             {"key": "port",           "label": "SSH Port",                          "type": "number",   "required": False, "default": "22"},
@@ -142,7 +142,7 @@ DEVICE_CATALOGUE = {
         "connection_type": "winrm", "icon": "windows",
         "description": "Windows server monitored via WinRM + SNMP",
         "credential_fields": [
-            {"key": "host",           "label": "IP / Hostname",              "type": "text",     "required": True},
+            {"key": "host",           "label": "IP Address (e.g. 10.7.51.x)","type": "text",     "required": True, "hint": "Enter IP address only"},
             {"key": "username",       "label": "Username (domain\\\\user)",  "type": "text",     "required": True},
             {"key": "password",       "label": "Password",                   "type": "password", "required": True},
             {"key": "winrm_port",     "label": "WinRM Port",                 "type": "number",   "required": False, "default": "5985"},
@@ -636,7 +636,7 @@ ls -la /usr/local/bin/snmp-service-monitor.sh && echo "✓ Monitor script ready"
 # ═══════════════════════════════════════════════════════════
 
 # Copy the Gruve NOC ansible public key to the new VM
-ssh-copy-id -i /home/bhupesh/.ssh/ansible-pem-key.pub -p {port} ansible@{host}
+ssh-copy-id -f -i /home/bhupesh/.ssh/ansible-pem-key.pub -p {port} ansible@{host}
 
 # If ssh-copy-id fails (password auth disabled), do it manually:
 # cat /home/bhupesh/.ssh/ansible-pem-key.pub | ssh {username}@{host} \\
