@@ -51,25 +51,26 @@ def parse_snmp_trap(data: bytes, addr) -> dict:
         for varBind in pdu.getComponentByName('variable-bindings'):
             oid_str = str(varBind[0]).lstrip('.')
             val_wrapper = varBind[1]
-            # val_wrapper is a CHOICE — get the active component
-            for comp_name in val_wrapper.componentType.keys():
+            # Extract value — walk down the CHOICE/SEQUENCE tree to get leaf value
+            try:
+                # Get the active component of the CHOICE
+                active = val_wrapper.getComponent()
+                # If it's another CHOICE/SEQUENCE, go deeper
                 try:
-                    comp = val_wrapper.getComponentByName(comp_name)
-                    if comp.hasValue():
-                        # Extract actual string value from ASN.1 object
-                        raw_val = str(comp).strip()
-                        # Handle OctetString — get bytes and decode
-                        try:
-                            actual_val = bytes(comp).decode("utf-8").strip()
-                        except Exception:
-                            actual_val = raw_val
-                        if actual_val:
-                            key = OID_MAP.get(oid_str)
-                            if key:
-                                event[key] = actual_val
-                        break
+                    active = active.getComponent()
                 except Exception:
-                    continue
+                    pass
+                # Now extract as bytes (OctetString) or string
+                try:
+                    actual_val = bytes(active).decode("utf-8").strip()
+                except Exception:
+                    actual_val = str(active).strip()
+                if actual_val:
+                    key = OID_MAP.get(oid_str)
+                    if key:
+                        event[key] = actual_val
+            except Exception:
+                continue
 
         if event.get('incident_type'):
             logger.info(f"Parsed via pysnmp v7: hostname={event.get('hostname')} service={event.get('service_name')}")
