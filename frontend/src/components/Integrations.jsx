@@ -154,7 +154,9 @@ export default function Integrations() {
 
   const openAdd = (toolItem) => {
     setSelectedTool(toolItem);
-    setForm({ name: toolItem.label, description: toolItem.description });
+    // For VMs, leave name empty so user types the actual hostname
+    const defaultName = ["linux_vm", "windows_vm"].includes(toolItem.tool_id) ? "" : toolItem.label;
+    setForm({ name: defaultName, description: toolItem.description });
     setCreds({});
     setShowModal(true);
   };
@@ -559,7 +561,7 @@ export default function Integrations() {
                   className="int-input"
                   value={form.name}
                   onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
-                  placeholder={`My ${selectedTool.label}`}
+                  placeholder={["linux_vm","windows_vm"].includes(selectedTool.tool_id) ? "VM hostname (e.g. gruve-noc-test-vm-2)" : `My ${selectedTool.label}`}
                   style={{
                     width: "100%", border: "1px solid #D1D5DB", borderRadius: "7px",
                     padding: "9px 13px", fontSize: "13px", color: "#111827",
@@ -567,6 +569,11 @@ export default function Integrations() {
                   }}
                 />
               </div>
+              {["linux_vm","windows_vm"].includes(selectedTool.tool_id) && (
+                <p style={{ fontSize: "11px", color: "#D97706", marginTop: "-8px", marginBottom: "12px" }}>
+                  ⚠ Name must match the VM hostname exactly (run <code>hostname</code> on the VM to check)
+                </p>
+              )}
 
               {/* Description */}
               <div style={{ marginBottom: "18px" }}>
