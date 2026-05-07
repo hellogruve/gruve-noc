@@ -35,7 +35,10 @@ class SNMPAgent:
                 if not ip_to_check:
                     continue
                 integ = await mongo_service._db["integrations"].find_one({
-                    "credentials.host": ip_to_check,
+                    "$or": [
+                        {"credentials.host": ip_to_check},
+                        {"base_url": ip_to_check}
+                    ],
                     "category": "VM"
                 })
                 if integ:
