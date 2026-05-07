@@ -636,6 +636,11 @@ export default function Integrations() {
                       Make sure SNMP is enabled on the device and this community string matches.
                     </p>
                   )}
+                  {field.key === "host" && (
+                    <p style={{ fontSize: "11px", color: "#D97706", marginTop: "4px" }}>
+                      ⚠ Enter IP address only (e.g. 10.7.51.136) — not the hostname.
+                    </p>
+                  )}
                   {field.key === "services" && (
                     <p style={{ fontSize: "11px", color: "#6B7280", marginTop: "4px" }}>
                       e.g. haproxy, sshd, firewalld — leave blank to monitor all.
