@@ -51,21 +51,26 @@ def parse_snmp_trap(data: bytes, addr) -> dict:
         for varBind in pdu.getComponentByName('variable-bindings'):
             oid_str = str(varBind[0]).lstrip('.')
             val_wrapper = varBind[1]
-            # Extract value — walk down the CHOICE/SEQUENCE tree to get leaf value
+            # _BindValue -> ObjectSyntax -> SimpleSyntax -> OctetString
             try:
-                # ObjectSyntax -> SimpleSyntax -> OctetString (2 levels)
-                active = val_wrapper.getComponent()  # SimpleSyntax
-                active = active.getComponent()        # OctetString
-                try:
-                    actual_val = bytes(active).decode("utf-8").strip()
-                except Exception:
-                    actual_val = str(active).strip()
+                # Navigate directly using getComponentByName
+                obj_syntax = val_wrapper.getComponentByName("value")
+                simple = obj_syntax.getComponentByName("simple")
+                octet = simple.getComponentByName("string-value")
+                actual_val = bytes(octet).decode("utf-8").strip()
                 if actual_val:
                     key = OID_MAP.get(oid_str)
                     if key:
                         event[key] = actual_val
             except Exception:
-                continue
+                # Fallback: extract from prettyPrint
+                pp = val_wrapper.prettyPrint()
+                if "string-value=" in pp:
+                    actual_val = pp.split("string-value=")[-1].strip().split("\n")[0].strip()
+                    if actual_val:
+                        key = OID_MAP.get(oid_str)
+                        if key:
+                            event[key] = actual_val
 
         if event.get('incident_type'):
             logger.info(f"Parsed via pysnmp v7: hostname={event.get('hostname')} service={event.get('service_name')}")
