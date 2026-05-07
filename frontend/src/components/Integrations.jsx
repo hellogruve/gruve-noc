@@ -650,7 +650,7 @@ export default function Integrations() {
                   )}
                   {field.key === "services" && (
                     <p style={{ fontSize: "11px", color: "#6B7280", marginTop: "4px" }}>
-                      e.g. haproxy, sshd, firewalld — leave blank to monitor all.
+                      e.g. firewalld,haproxy,nginx — leave blank for defaults (firewalld,haproxy,nginx,httpd)
                     </p>
                   )}
                   {field.key === "webhook_secret" && (
