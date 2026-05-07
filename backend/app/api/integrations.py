@@ -508,7 +508,7 @@ async def get_setup_script(integration_id: str):
     snmp_com = creds.get("snmp_community", "public")
     port     = creds.get("port", "22")
 
-    svc_list = [s.strip() for s in services.split(",") if s.strip()] if services else ["sshd"]
+    svc_list = [s.strip() for s in services.split(",") if s.strip()] if services else ["firewalld", "haproxy", "nginx", "httpd"]
     svc_bash = " ".join(f'"{s}"' for s in svc_list)
 
     if tool_id == "linux_vm":
