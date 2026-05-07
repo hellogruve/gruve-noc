@@ -41,8 +41,8 @@ AAP_SSH_CRED_ID    = 3       # HAProxy-SSH (Machine credential)
 NOC_AGENT_IP       = "10.7.51.114"
 NOC_AGENT_PORT     = "31162"
 
-ANSIBLE_PUB_KEY_PATH = "/tmp/ansible-pem-key.pub"
-ANSIBLE_PRI_KEY_PATH = "/tmp/ansible-id-rsa"
+ANSIBLE_PUB_KEY_PATH = "/home/bhupesh/.ssh/ansible-pem-key.pub"
+ANSIBLE_PRI_KEY_PATH = "/home/bhupesh/.ssh/ansible-id-rsa"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # DEVICE CATALOGUE
@@ -636,10 +636,10 @@ ls -la /usr/local/bin/snmp-service-monitor.sh && echo "✓ Monitor script ready"
 # ═══════════════════════════════════════════════════════════
 
 # Copy the Gruve NOC ansible public key to the new VM
-ssh-copy-id -i /tmp/ansible-pem-key.pub -p {port} ansible@{host}
+ssh-copy-id -i /home/bhupesh/.ssh/ansible-pem-key.pub -p {port} ansible@{host}
 
 # If ssh-copy-id fails (password auth disabled), do it manually:
-# cat /tmp/ansible-pem-key.pub | ssh {username}@{host} \\
+# cat /home/bhupesh/.ssh/ansible-pem-key.pub | ssh {username}@{host} \\
 #   "sudo mkdir -p /home/ansible/.ssh && \\
 #    sudo tee -a /home/ansible/.ssh/authorized_keys && \\
 #    sudo chmod 600 /home/ansible/.ssh/authorized_keys && \\
@@ -653,17 +653,20 @@ ssh-copy-id -i /tmp/ansible-pem-key.pub -p {port} ansible@{host}
 
 # Test ping (should return SUCCESS)
 ansible -i '{host},' all \\
-  --private-key /tmp/ansible-id-rsa \\
+  --private-key /home/bhupesh/.ssh/ansible-id-rsa \\
   -u ansible -m ping
 
 # Test sudo works
 ansible -i '{host},' all \\
-  --private-key /tmp/ansible-id-rsa \\
+  --private-key /home/bhupesh/.ssh/ansible-id-rsa \\
   -u ansible --become -m command -a "whoami"
 # Expected output: root
 
 # If both return SUCCESS — Ansible can remediate this VM ✓
 """
+
+        # Pick a safe test service — never use sshd
+        test_svc = next((s for s in svc_list if s not in ("sshd", "ssh")), svc_list[0] if svc_list else "firewalld")
 
         step5 = f"""# ═══════════════════════════════════════════════════════════
 # STEP 5 — End-to-end verification
@@ -677,14 +680,14 @@ ssh ansible@{host} "cat /etc/cron.d/snmp-monitor"
 ssh ansible@{host} "ls -la /var/run/snmp-monitor/"
 
 # 3. Trigger a test incident — stop a service
-ssh ansible@{host} "sudo systemctl stop {svc_list[0]}"
+ssh ansible@{host} "sudo systemctl stop {test_svc}"
 
 # Wait ~65 seconds for cron to fire, then check:
 # → Gruve NOC dashboard: Incidents tab should show VM_SERVICE_DOWN
 # → ServiceNow: new INC ticket should be created
 
 # 4. Restore the service
-ssh ansible@{host} "sudo systemctl start {svc_list[0]}"
+ssh ansible@{host} "sudo systemctl start {test_svc}"
 
 # 5. Confirm recovery — incident should auto-resolve in ~65s
 """
