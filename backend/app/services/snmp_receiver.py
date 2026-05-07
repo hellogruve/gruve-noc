@@ -53,14 +53,9 @@ def parse_snmp_trap(data: bytes, addr) -> dict:
             val_wrapper = varBind[1]
             # Extract value — walk down the CHOICE/SEQUENCE tree to get leaf value
             try:
-                # Get the active component of the CHOICE
-                active = val_wrapper.getComponent()
-                # If it's another CHOICE/SEQUENCE, go deeper
-                try:
-                    active = active.getComponent()
-                except Exception:
-                    pass
-                # Now extract as bytes (OctetString) or string
+                # ObjectSyntax -> SimpleSyntax -> OctetString (2 levels)
+                active = val_wrapper.getComponent()  # SimpleSyntax
+                active = active.getComponent()        # OctetString
                 try:
                     actual_val = bytes(active).decode("utf-8").strip()
                 except Exception:
