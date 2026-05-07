@@ -574,7 +574,7 @@ export default function Dashboard({ stats, incidents, onSelect, onQuickAction })
       <div style={{ marginBottom:20 }}>
         <h1 style={{ fontSize:20, fontWeight:700, color:'var(--text-primary)' }}>NOC Dashboard</h1>
         <p style={{ fontSize:13, color:'var(--text-secondary)', marginTop:3 }}>
-          Real-time Meraki network monitoring — Gruve Autonomous AI NOC
+          Governed execution layer for agentic operations powered by Ansible Automation Platform
         </p>
       </div>
 

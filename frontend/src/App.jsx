@@ -67,7 +67,7 @@ export default function App() {
           <div style={{ fontSize: 10, color: 'var(--gruve-green)', letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 500 }}>
           </div>
           <div style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase', marginTop: 3 }}>
-            Autonomous AI NOC
+            Governed Autonomous AIOps
           </div>
         </div>
 
