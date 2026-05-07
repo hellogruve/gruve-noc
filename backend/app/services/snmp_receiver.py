@@ -88,26 +88,41 @@ def parse_snmp_trap(data: bytes, addr) -> dict:
         SEVERITY_VALS  = {"critical", "warning", "ok", "info"}
         INCIDENT_TYPES = {"VM_SERVICE_DOWN", "VM_SERVICE_RECOVERED", "DISK_CRITICAL"}
 
-        # Anchor on event_type (always OID .1.1.3 = 3rd varbind)
-        # hostname is 2 before, service_name is 1 before, host_ip is 1 after
+        # Find all known values first regardless of position
+        for s in strings:
+            if s in EVENT_TYPES and not event.get("event_type"):
+                event["event_type"] = s
+            elif s in SEVERITY_VALS and not event.get("severity"):
+                event["severity"] = s
+            elif s in INCIDENT_TYPES and not event.get("incident_type"):
+                event["incident_type"] = s
+            elif re.match(r'^\d+\.\d+\.\d+\.\d+$', s) and not s.startswith('100.64.') and not event.get("host_ip"):
+                event["host_ip"] = s
+
+        # Find hostname and service_name by scanning for event_type anchor
+        # and looking at the two strings immediately before it in the packet
         for i, s in enumerate(strings):
             if s in EVENT_TYPES:
-                if i >= 2:
-                    event["hostname"]     = strings[i - 2]
-                    event["service_name"] = strings[i - 1]
-                elif i == 1:
-                    event["hostname"]     = strings[i - 1]
-                event["event_type"] = s
-                if i + 1 < len(strings) and re.match(r'^\d+\.\d+\.\d+\.\d+$', strings[i + 1]) and not strings[i + 1].startswith('100.64.'):
-                    event["host_ip"] = strings[i + 1]
-                    if i + 2 < len(strings) and strings[i + 2] in SEVERITY_VALS:
-                        event["severity"] = strings[i + 2]
-                    if i + 3 < len(strings) and strings[i + 3] in INCIDENT_TYPES:
-                        event["incident_type"] = strings[i + 3]
-                elif i + 1 < len(strings) and strings[i + 1] in SEVERITY_VALS:
-                    event["severity"] = strings[i + 1]
-                    if i + 2 < len(strings) and strings[i + 2] in INCIDENT_TYPES:
-                        event["incident_type"] = strings[i + 2]
+                # Walk backwards to find hostname and service_name
+                # Skip any strings that are known values or look like OIDs
+                candidates = []
+                for j in range(i - 1, max(i - 10, -1), -1):
+                    candidate = strings[j]
+                    # Skip if it looks like an OID, IP, or known value
+                    if (re.match(r'^\d+[\.\d]+$', candidate) or
+                        candidate in EVENT_TYPES or
+                        candidate in SEVERITY_VALS or
+                        candidate in INCIDENT_TYPES or
+                        len(candidate) < 2):
+                        continue
+                    candidates.append(candidate)
+                    if len(candidates) == 2:
+                        break
+                if len(candidates) >= 2:
+                    event["service_name"] = candidates[0]  # closest to event_type
+                    event["hostname"]     = candidates[1]  # furthest from event_type
+                elif len(candidates) == 1:
+                    event["service_name"] = candidates[0]
                 break
 
         # Fallback scan for incident_type anywhere in packet
