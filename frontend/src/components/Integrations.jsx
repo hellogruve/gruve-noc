@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import SetupModal from "./SetupModal.jsx";
 
 const API = import.meta.env.VITE_API_BASE_URL || "";
 
@@ -123,6 +124,7 @@ export default function Integrations() {
   const [toast, setToast]             = useState(null);
   const [search, setSearch]           = useState("");
   const [healthChecking, setHealthChecking] = useState({});
+  const [setupIntegration, setSetupIntegration] = useState(null);
 
   // Load catalogue
   useEffect(() => {
@@ -180,10 +182,15 @@ export default function Integrations() {
       });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.detail || "Failed to save");
-      showToast(`✓ ${form.name} added successfully`);
       closeModal();
       loadIntegrations();
       setView("active");
+      // Show setup modal for VM types, toast for everything else
+      if (["linux_vm", "windows_vm"].includes(selectedTool.tool_id)) {
+        setSetupIntegration(data.integration);
+      } else {
+        showToast(`✓ ${form.name} added successfully`);
+      }
     } catch (e) {
       showToast(`✗ ${e.message}`, "error");
     } finally {
@@ -689,6 +696,17 @@ export default function Integrations() {
         }}>
           {toast.msg}
         </div>
+      )}
+
+      {/* ── VM Setup Modal ── */}
+      {setupIntegration && (
+        <SetupModal
+          integration={setupIntegration}
+          onClose={() => {
+            setSetupIntegration(null);
+            showToast(`✓ ${setupIntegration.name} fully configured`);
+          }}
+        />
       )}
     </div>
   );
