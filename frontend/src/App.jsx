@@ -168,23 +168,27 @@ export default function App() {
 
       {/* ── Icon rail ── */}
       <div style={{
-        width: 72, flexShrink: 0,
+        width: 88, flexShrink: 0,
         background: 'var(--bg-surface)',
         borderRight: '1px solid var(--bg-border)',
         display: 'flex', flexDirection: 'column',
         alignItems: 'center',
-        paddingTop: 20,
+        paddingTop: 0,
+        paddingBottom: 0,
+        justifyContent: 'space-between',
         zIndex: 10
       }}>
         {/* Logo */}
         <div style={{
-          width: 52, height: 52, marginBottom: 28,
-          display: 'flex', alignItems: 'center', justifyContent: 'center'
+          width: 64, height: 64, marginBottom: 32,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(22,163,74,0.08)', borderRadius: 14
         }}>
-          <img src={gruveLogo} alt="G" style={{ width: 44, height: 44, objectFit: 'contain' }} />
+          <img src={gruveLogo} alt="G" style={{ width: 48, height: 48, objectFit: 'contain' }} />
         </div>
 
-        {/* Group icons */}
+        {/* Group icons — vertically centered */}
+        <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', flex:1, gap:4 }}>
         {GROUPS.map(group => {
           const Icon   = group.icon
           const active = activeGroup === group.id
@@ -199,7 +203,7 @@ export default function App() {
               title={group.label}
               style={{
                 position: 'relative',
-                width: 52, padding: '10px 0',
+                width: 64, padding: '12px 0',
                 marginBottom: 16,
                 borderRadius: 10, border: 'none', cursor: 'pointer',
                 background: active ? 'rgba(22,163,74,0.15)' : 'transparent',
@@ -246,8 +250,9 @@ export default function App() {
           )
         })}
 
-        {/* Spacer */}
-        <div style={{ flex: 1 }} />
+        </div>
+        {/* Spacer placeholder */}
+        <div style={{ height: 8 }} />
 
         {/* Collapse button */}
         <button
