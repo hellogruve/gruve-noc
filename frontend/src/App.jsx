@@ -173,15 +173,15 @@ export default function App() {
         borderRight: '1px solid var(--bg-border)',
         display: 'flex', flexDirection: 'column',
         alignItems: 'center',
-        paddingTop: 12,
+        paddingTop: 20,
         zIndex: 10
       }}>
         {/* Logo */}
         <div style={{
-          width: 40, height: 40, marginBottom: 20,
+          width: 52, height: 52, marginBottom: 28,
           display: 'flex', alignItems: 'center', justifyContent: 'center'
         }}>
-          <img src={gruveLogo} alt="G" style={{ width: 32, height: 32, objectFit: 'contain' }} />
+          <img src={gruveLogo} alt="G" style={{ width: 44, height: 44, objectFit: 'contain' }} />
         </div>
 
         {/* Group icons */}
@@ -200,7 +200,7 @@ export default function App() {
               style={{
                 position: 'relative',
                 width: 52, padding: '10px 0',
-                marginBottom: 4,
+                marginBottom: 16,
                 borderRadius: 10, border: 'none', cursor: 'pointer',
                 background: active ? 'rgba(22,163,74,0.15)' : 'transparent',
                 display: 'flex', flexDirection: 'column',
