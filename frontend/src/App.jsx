@@ -338,7 +338,7 @@ export default function App() {
           }}>
             <div className="pulse-dot" style={{ background: 'var(--gruve-green)' }} />
             <span style={{ fontSize: 10, color: 'var(--text-muted)', lineHeight: 1.3 }}>
-              Governed Autonomous AIOps
+              Intelligent Operations Platform
             </span>
           </div>
         </aside>

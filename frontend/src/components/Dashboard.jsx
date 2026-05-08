@@ -572,14 +572,20 @@ export default function Dashboard({ stats, incidents, onSelect, onQuickAction })
 
       {/* Header */}
       <div style={{ marginBottom:20 }}>
-        <h1 style={{ fontSize:20, fontWeight:700, color:'var(--text-primary)' }}>NOC Dashboard</h1>
+        <h1 style={{ fontSize:20, fontWeight:700, color:'var(--text-primary)' }}>Dashboard</h1>
         <p style={{ fontSize:13, color:'var(--text-secondary)', marginTop:3 }}>
           Governed execution layer for agentic operations powered by Ansible Automation Platform
         </p>
       </div>
 
-      {/* Stat cards */}
-      <div style={{ display:'flex', gap:14, marginBottom:20 }}>
+      {/* Row 1: Network Map — full width */}
+      <div className="card" style={{ padding:0, overflow:'hidden', marginBottom:20 }}>
+        <SectionHeader title="🗺 Network Map" subtitle="live"/>
+        <MiniMap/>
+      </div>
+
+      {/* Row 2: Stat cards */}
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr', gap:14, marginBottom:20 }}>
         <StatCard label="Total Incidents" value={stats.total} icon={Activity}
           sublabel="All time" onClick={() => setModal('total')}/>
         <StatCard label="Open" value={stats.open} icon={AlertTriangle} color="#DC2626"
@@ -590,9 +596,8 @@ export default function Dashboard({ stats, incidents, onSelect, onQuickAction })
           sublabel="Last 24h" onClick={() => setModal('resolved')}/>
       </div>
 
-      {/* Row 2: Device health + Type bars + Quick Actions */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:14, marginBottom:20 }}>
-
+      {/* Row 3: Device Health + Incidents by Type */}
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:20 }}>
         <div className="card" style={{ padding:0 }}>
           <SectionHeader title="Device Health"
             subtitle={dh.total > 0 ? `${dh.total} devices` : ''}/>
@@ -612,27 +617,12 @@ export default function Dashboard({ stats, incidents, onSelect, onQuickAction })
             <TypeBars byType={summary?.by_type || stats.by_type || {}}/>
           </div>
         </div>
-
-        <div className="card" style={{ padding:0 }}>
-          <SectionHeader title="⚡ Quick Actions" subtitle="→ Gruve AI"/>
-          <div style={{ padding:16 }}>
-            <QuickActions onQuickAction={onQuickAction}/>
-          </div>
-        </div>
       </div>
 
-      {/* Row 3: Mini Map + Recent Incidents */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1.6fr', gap:14 }}>
-
-        <div className="card" style={{ padding:0, overflow:'hidden' }}>
-          <SectionHeader title="🗺 Network Map" subtitle="live"/>
-          <MiniMap/>
-        </div>
-
-        <div className="card" style={{ padding:0 }}>
-          <SectionHeader title="📋 Event Logs" subtitle="live · 30s TTL"/>
-          <InlineEventLogs/>
-        </div>
+      {/* Row 4: Event Logs — full width */}
+      <div className="card" style={{ padding:0 }}>
+        <SectionHeader title="📋 Event Logs" subtitle="live · 30s TTL"/>
+        <InlineEventLogs/>
       </div>
 
       {modal && (
