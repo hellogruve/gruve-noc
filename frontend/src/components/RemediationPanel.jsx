@@ -332,7 +332,7 @@ export default function RemediationPanel({ incident, api }) {
                 {jobStatus.status === 'eda_triggered' && (
                   <div style={{ marginTop:8, display:'flex', gap:12 }}>
                     
-                    <a href="https://aap-controller-aap.apps.ocp-mig2.gruveai.com/ui/#/workflow-approvals"
+                    <a href="https://aap-aap.apps.ocp-mig2.gruveai.com/execution/administration/workflow-approvals?page=1&perPage=10&sort=name"
                       target="_blank" rel="noreferrer"
                       style={{ fontSize:11, color:'var(--gruve-green)', textDecoration:'none', display:'flex', alignItems:'center', gap:4 }}
                     >
