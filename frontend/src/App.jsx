@@ -188,7 +188,7 @@ export default function App() {
         </div>
 
         {/* Group icons — vertically centered */}
-        <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', flex:1, gap:4 }}>
+        <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', flex:1, gap:20, paddingTop:'8%', paddingBottom:'8%' }}>
         {GROUPS.map(group => {
           const Icon   = group.icon
           const active = activeGroup === group.id
@@ -203,7 +203,7 @@ export default function App() {
               title={group.label}
               style={{
                 position: 'relative',
-                width: 64, padding: '12px 0',
+                width: 64, padding: '14px 0',
                 marginBottom: 16,
                 borderRadius: 10, border: 'none', cursor: 'pointer',
                 background: active ? 'rgba(22,163,74,0.15)' : 'transparent',
@@ -306,12 +306,12 @@ export default function App() {
                   onClick={() => setActiveTab(item.id)}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 10,
-                    width: '100%', padding: '9px 12px',
+                    width: '100%', padding: '11px 14px',
                     borderRadius: 8, border: 'none',
                     background: active ? 'var(--gruve-green-glow)' : 'transparent',
                     color: active ? 'var(--gruve-green)' : 'var(--text-secondary)',
                     fontSize: 13, fontWeight: active ? 600 : 400,
-                    cursor: 'pointer', marginBottom: 2,
+                    cursor: 'pointer', marginBottom: 8,
                     textAlign: 'left', fontFamily: 'inherit',
                     transition: 'all 0.15s'
                   }}
