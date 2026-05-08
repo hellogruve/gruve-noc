@@ -415,10 +415,43 @@ async def approve_remediation(request: ApprovalRequest):
 
 # ── Resolve Incident (called by AAP after remediation) ────────────────────────
 
+class UpdateTicketRequest(BaseModel):
+    incident_id: str
+    snow_ticket_id: str = ""
+    snow_sys_id: str = ""
+
+@router.post("/update-ticket")
+async def update_snow_ticket(request: UpdateTicketRequest):
+    """
+    Called by AAP snow-create-incident playbook immediately after ticket creation.
+    Saves the ServiceNow ticket number to MongoDB so UI shows it right away.
+    """
+    logger.info(f"Updating ticket for incident {request.incident_id}: {request.snow_ticket_id}")
+    incident = await mongo_service.get_incident_by_id(request.incident_id)
+    if not incident:
+        logger.warning(f"Incident {request.incident_id} not found for ticket update")
+        return {"message": "Incident not found", "incident_id": request.incident_id}
+    await mongo_service.update_incident_status(
+        request.incident_id,
+        status=incident.get("status", "approved"),
+        snow_ticket_id=request.snow_ticket_id if request.snow_ticket_id else None
+    )
+    logger.info(f"Ticket {request.snow_ticket_id} saved for incident {request.incident_id}")
+    return {
+        "message": "Ticket updated",
+        "incident_id": request.incident_id,
+        "snow_ticket_id": request.snow_ticket_id
+    }
+
+
 class ResolveRequest(BaseModel):
     incident_id: str
     status: str = "resolved"
     message: str = "Resolved by AAP workflow"
+    snow_ticket_id: str = ""
+    snow_sys_id: str = ""
+    snow_ticket_id: str = ""
+    snow_sys_id: str = ""
 
 @router.post("/resolve")
 async def resolve_incident(request: ResolveRequest):
