@@ -183,7 +183,13 @@ export default function RemediationPanel({ incident, api }) {
             { label:'Detected',      value: incident.created_at ? new Date(incident.created_at).toLocaleString() : '—' },
             { label:'Device serial', value: incident.device_serial },
             { label:'Network ID',    value: incident.network_id || '—' },
-            { label:'ServiceNow',    value: incident.snow_ticket_id || 'Pending' },
+            { label:'ServiceNow',    value: incident.snow_ticket_id
+                ? <a href={`https://dev380179.service-now.com/incident.do?sysparm_query=number=${incident.snow_ticket_id}`}
+                    target="_blank" rel="noreferrer"
+                    style={{ color:'var(--gruve-green)', textDecoration:'none', fontWeight:600 }}>
+                    {incident.snow_ticket_id} ↗
+                  </a>
+                : <span style={{ color:'var(--text-muted)', fontStyle:'italic' }}>Pending</span> },
           ].map(f => (
             <div key={f.label} style={{
               background:'var(--bg-elevated)', padding:'10px 14px',
@@ -326,7 +332,7 @@ export default function RemediationPanel({ incident, api }) {
                 {jobStatus.status === 'eda_triggered' && (
                   <div style={{ marginTop:8, display:'flex', gap:12 }}>
                     
-                    <a href="https://aap-controller-aap.apps.ocp-mig2.gruveai.com/#/workflow-approvals"
+                    <a href="https://aap-controller-aap.apps.ocp-mig2.gruveai.com/ui/#/workflow-approvals"
                       target="_blank" rel="noreferrer"
                       style={{ fontSize:11, color:'var(--gruve-green)', textDecoration:'none', display:'flex', alignItems:'center', gap:4 }}
                     >
