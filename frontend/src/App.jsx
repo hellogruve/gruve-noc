@@ -183,15 +183,27 @@ export default function App() {
       }}>
         {/* Logo */}
         <div style={{
-          width: 64, height: 64, marginBottom: 32,
+          width: 72, height: 72, marginTop: 8, marginBottom: 8,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'rgba(22,163,74,0.08)', borderRadius: 14
         }}>
-          <img src={gruveLogo} alt="G" style={{ width: 48, height: 48, objectFit: 'contain' }} />
+          <img src={gruveLogo} alt="G" style={{ width: 64, height: 64, objectFit: 'contain' }} />
         </div>
+        {/* Collapse button — top */}
+        <button
+          onClick={() => setSidebarOpen(o => !o)}
+          style={{
+            width: 52, height: 36, marginBottom: 4,
+            borderRadius: 8, border: 'none',
+            background: 'transparent', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
+          }}
+          title="Toggle sidebar"
+        >
+          <Menu size={16} color="var(--text-muted)" />
+        </button>
 
-        {/* Group icons — vertically centered */}
-        <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', flex:1, gap:20, paddingTop:'8%', paddingBottom:'8%' }}>
+        {/* Group icons — top aligned */}
+        <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'flex-start', flex:1, gap:8, paddingTop:12 }}>
         {GROUPS.map(group => {
           const Icon   = group.icon
           const active = activeGroup === group.id
@@ -254,22 +266,7 @@ export default function App() {
         })}
 
         </div>
-        {/* Spacer placeholder */}
-        <div style={{ height: 8 }} />
 
-        {/* Collapse button */}
-        <button
-          onClick={() => setSidebarOpen(o => !o)}
-          style={{
-            width: 52, height: 36, marginBottom: 16,
-            borderRadius: 8, border: 'none',
-            background: 'transparent', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center'
-          }}
-          title="Toggle sidebar"
-        >
-          <Menu size={16} color="var(--text-muted)" />
-        </button>
       </div>
 
       {/* ── Sub-sidebar ── */}
