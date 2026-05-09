@@ -290,7 +290,7 @@ export default function NocAI({ api = '', pendingCmd = null, onCmdConsumed }) {
   const [messages,  setMessages]  = useState([{
     id:0, role:'assistant', tool:null, sources:0, time:now(),
     error:false, jobId:null,
-    content:'👋 Hello! I\'m Gruve NOC AI.\n\nI combine network knowledge with live automation — ask me anything about your Meraki network, or give me a command to run in AAP.\n\n💬 Questions:  "why is haproxy down?" · "how do I check SNMP traps?"\n⚡ Actions:    "list all hosts" · "patch haproxy" · "check disk space"'
+    content:'👋 Hello! I\'m Gruve IntelliOps.\n\nI combine network knowledge with live automation — ask me anything about your Meraki network, or give me a command to run in AAP.\n\n💬 Questions:  "why is haproxy down?" · "how do I check SNMP traps?"\n⚡ Actions:    "list all hosts" · "patch haproxy" · "check disk space"'
   }])
   const [input,     setInput]     = useState('')
   const [loading,   setLoading]   = useState(false)
@@ -381,7 +381,7 @@ export default function NocAI({ api = '', pendingCmd = null, onCmdConsumed }) {
             </div>
             <div>
               <div style={{ fontSize:13, fontWeight:600, color:'var(--text-primary)' }}>
-                Gruve NOC AI
+                Gruve IntelliOps
               </div>
               <div style={{ fontSize:10, display:'flex', alignItems:'center', gap:4,
                 color: connected ? 'var(--gruve-green)' : 'var(--status-warning)' }}>
@@ -427,7 +427,7 @@ export default function NocAI({ api = '', pendingCmd = null, onCmdConsumed }) {
           display:'flex', justifyContent:'space-between', alignItems:'center' }}>
           <div>
             <div style={{ fontSize:14, fontWeight:600, color:'var(--text-primary)' }}>
-              Gruve NOC AI
+              Gruve IntelliOps
             </div>
             <div style={{ fontSize:11, color:'var(--text-muted)' }}>
               Meraki RAG · Ansible MCP · {ctx.job_templates?.length||0} templates · {ctx.hosts?.length||0} hosts
