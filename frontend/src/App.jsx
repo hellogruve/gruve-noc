@@ -7,6 +7,7 @@ import NocAI from './components/NocAI.jsx'
 import Integrations from './components/Integrations.jsx'
 import DeviceMap from './components/DeviceMap.jsx'
 import EventLogs from './components/EventLogs.jsx'
+import VulnerabilityManagement from './components/VulnerabilityManagement.jsx'
 import gruveLogo from './assets/gruve-logo.png'
 
 const API = import.meta.env.VITE_API_BASE_URL || ''
@@ -19,7 +20,7 @@ const GROUPS = [
     items: [
       { id: 'dashboard',      icon: Activity, label: 'Dashboard'                      },
       { id: 'incidents',      icon: Bell,     label: 'Incidents & Events', badge: true },
-      { id: 'infrastructure', icon: Server,   label: 'Infrastructure & Observability' },
+      { id: 'infrastructure', icon: Server,   label: 'Vulnerability Management' },
     ]
   },
   {
@@ -356,7 +357,7 @@ export default function App() {
       }}>
         {activeTab === 'dashboard'      && <Dashboard stats={stats} incidents={incidents} onSelect={handleSelectIncident} onQuickAction={(cmd) => { setPendingCmd(cmd); setActiveGroup('ai_automation'); setActiveTab('ai_ops') }} />}
         {activeTab === 'incidents'      && <IncidentList incidents={incidents} onSelect={handleSelectIncident} />}
-        {activeTab === 'infrastructure' && <Infrastructure incidents={incidents} onSelect={handleSelectIncident} />}
+        {activeTab === 'infrastructure' && <VulnerabilityManagement />}
         {activeTab === 'ai_ops'         && <NocAI api={API} pendingCmd={pendingCmd} onCmdConsumed={() => setPendingCmd(null)} />}
         {activeTab === 'remediation'    && <RemediationPanel incident={selectedIncident} api={API} />}
         {activeTab === 'integrations'   && <Integrations />}
