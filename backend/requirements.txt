@@ -32,3 +32,4 @@ python-dateutil==2.9.0
 # JSON and data utilities
 python-multipart==0.0.12
 pysnmp==7.1.26
+openpyxl>=3.1.0
