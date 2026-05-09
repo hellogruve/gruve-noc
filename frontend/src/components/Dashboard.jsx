@@ -540,6 +540,7 @@ function InlineEventLogs() {
 export default function Dashboard({ stats, incidents, onSelect, onQuickAction }) {
   const [summary, setSummary] = useState(null)
   const [modal,   setModal]   = useState(null)
+  const [vuln,    setVuln]    = useState(null)
 
   useEffect(() => {
     const load = async () => {
@@ -550,6 +551,18 @@ export default function Dashboard({ stats, incidents, onSelect, onQuickAction })
     }
     load()
     const t = setInterval(load, 30000)
+    return () => clearInterval(t)
+  }, [])
+
+  useEffect(() => {
+    const loadVuln = async () => {
+      try {
+        const r = await fetch(`${API}/api/v1/vulnerabilities/summary/fleet`)
+        setVuln(await r.json())
+      } catch(e) {}
+    }
+    loadVuln()
+    const t = setInterval(loadVuln, 60000)
     return () => clearInterval(t)
   }, [])
 
@@ -595,6 +608,63 @@ export default function Dashboard({ stats, incidents, onSelect, onQuickAction })
         <StatCard label="Resolved" value={stats.resolved} icon={CheckCircle} color="#16A34A"
           sublabel="Last 24h" onClick={() => setModal('resolved')}/>
       </div>
+
+      {/* Row 2b: Vulnerability Risk Tile */}
+      {vuln && (
+        <div className="card" style={{ marginBottom:20, padding:'16px 20px',
+          borderLeft: vuln.total_critical > 0 ? '3px solid #f87171'
+            : vuln.total_important > 0 ? '3px solid #fb923c'
+            : '3px solid var(--gruve-green)' }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:12 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:16 }}>
+              <div>
+                <div style={{ fontSize:13, fontWeight:700, marginBottom:2 }}>
+                  Vulnerability Risk
+                </div>
+                <div style={{ fontSize:11, color:'var(--text-muted)' }}>
+                  {vuln.scanned_vms} VMs scanned · Last updated just now
+                </div>
+              </div>
+              {/* Risk score */}
+              <div style={{ textAlign:'center', padding:'4px 16px',
+                borderRadius:8, background:'rgba(0,0,0,0.2)',
+                border:'1px solid var(--bg-border)' }}>
+                <div style={{ fontSize:24, fontWeight:700,
+                  color: vuln.fleet_risk_score >= 70 ? '#f87171'
+                    : vuln.fleet_risk_score >= 40 ? '#fb923c'
+                    : vuln.fleet_risk_score >= 20 ? '#facc15'
+                    : '#4ade80' }}>
+                  {vuln.fleet_risk_score}
+                </div>
+                <div style={{ fontSize:9, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.05em' }}>Risk Score</div>
+              </div>
+            </div>
+            {/* Severity counts */}
+            <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
+              {[
+                { label:'Critical',  value:vuln.total_critical,  color:'#f87171',  bg:'rgba(220,38,38,0.12)'  },
+                { label:'Important', value:vuln.total_important, color:'#fb923c',  bg:'rgba(234,88,12,0.12)'  },
+                { label:'Moderate',  value:vuln.total_moderate,  color:'#facc15',  bg:'rgba(202,138,4,0.12)'  },
+                { label:'Patched',   value:vuln.patched_vms,     color:'#4ade80',  bg:'rgba(22,163,74,0.12)'  },
+              ].map(s => (
+                <div key={s.label} style={{ textAlign:'center', padding:'6px 14px',
+                  borderRadius:8, background:s.bg, minWidth:70 }}>
+                  <div style={{ fontSize:20, fontWeight:700, color:s.color }}>{s.value}</div>
+                  <div style={{ fontSize:10, color:'var(--text-muted)' }}>{s.label}</div>
+                </div>
+              ))}
+            </div>
+            {/* Link to vuln page */}
+            <button
+              onClick={() => onQuickAction && onQuickAction('vulnerability')}
+              style={{ padding:'7px 16px', fontSize:12, borderRadius:8,
+                background:'var(--gruve-green)', border:'none', color:'#000',
+                fontWeight:700, cursor:'pointer', whiteSpace:'nowrap' }}>
+              View Details →
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Row 3: Device Health + Incidents by Type */}
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:20 }}>

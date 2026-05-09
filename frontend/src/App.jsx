@@ -354,7 +354,10 @@ export default function App() {
         flex: 1, overflow: 'auto',
         background: 'var(--bg-base)'
       }}>
-        {activeTab === 'dashboard'      && <Dashboard stats={stats} incidents={incidents} onSelect={handleSelectIncident} onQuickAction={(cmd) => { setPendingCmd(cmd); setActiveGroup('ai_automation'); setActiveTab('ai_ops') }} />}
+        {activeTab === 'dashboard'      && <Dashboard stats={stats} incidents={incidents} onSelect={handleSelectIncident} onQuickAction={(cmd) => {
+              if (cmd === 'vulnerability') { setActiveGroup('operations'); setActiveTab('infrastructure') }
+              else { setPendingCmd(cmd); setActiveGroup('ai_automation'); setActiveTab('ai_ops') }
+            }} />}
         {activeTab === 'incidents'      && <IncidentList incidents={incidents} onSelect={handleSelectIncident} />}
         {activeTab === 'infrastructure' && <VulnerabilityManagement />}
         {activeTab === 'ai_summary'     && <AISummary />}
