@@ -5,7 +5,7 @@ export default function ChatBot({ api }) {
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
-      content: "Hello! I am the Gruve NOC AI assistant.\nAsk me anything about your Meraki network — device issues, remediation steps, or network health."
+      content: "Hello! I am the Gruve IntelliOps assistant.\nAsk me anything about your Meraki network — device issues, remediation steps, or network health."
     }
   ])
   const [input, setInput]     = useState('')
