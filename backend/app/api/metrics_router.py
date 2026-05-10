@@ -256,7 +256,12 @@ async def get_nodes():
         mem_tot_map = {r["metric"].get("instance",""): round(float(r["value"][1])/1073741824,1) for r in mem_tot_results}
         disk_map    = {r["metric"].get("instance",""): round(float(r["value"][1]),1) for r in disk_results}
         ready_map   = {r["metric"].get("node",""):     float(r["value"][1])==1 for r in ready_results}
-        role_map    = {r["metric"].get("node",""):     r["metric"].get("role","worker") for r in node_role_results}
+        role_map = {}
+        for r in node_role_results:
+            node = r["metric"].get("node","")
+            role = r["metric"].get("role","worker")
+            if node not in role_map or role == "master":
+                role_map[node] = "master" if role in ("master","control-plane") else "worker"
         ip_map      = {r["metric"].get("node",""):     r["metric"].get("internal_ip","") for r in node_info_results}
 
         nodes = []
