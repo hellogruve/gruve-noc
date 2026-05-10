@@ -1,18 +1,20 @@
 """
 metrics_router.py — Infrastructure Metrics API
-Queries OCP Prometheus for node, pod, and VM metrics.
+OCP nodes queried via Prometheus (instance=hostname label).
+VMs queried directly via node_exporter HTTP (bypasses Prometheus).
 
 Routes:
-  GET /api/v1/metrics/config                    — get watched namespaces + VM config
-  POST /api/v1/metrics/config/namespace         — add namespace to watch
-  DELETE /api/v1/metrics/config/namespace/{ns}  — remove namespace
-  GET /api/v1/metrics/nodes                     — all OCP nodes CPU/Memory/Disk
-  GET /api/v1/metrics/pods/{namespace}          — pods in namespace
-  GET /api/v1/metrics/vms                       — VMs from AAP inventory via node_exporter
-  GET /api/v1/metrics/fleet                     — summary of everything
+  GET /api/v1/metrics/config
+  POST /api/v1/metrics/config/namespace
+  DELETE /api/v1/metrics/config/namespace/{ns}
+  GET /api/v1/metrics/nodes
+  GET /api/v1/metrics/pods/{namespace}
+  GET /api/v1/metrics/vms
+  GET /api/v1/metrics/fleet
 """
 import logging
 import httpx
+import time
 from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -28,7 +30,6 @@ AAP_TOKEN = "esBXwLQlbRM7QgLguqeqWl231utzVX"
 # ── Prometheus query helper ────────────────────────────────────────────────────
 
 async def prom_query(query: str) -> list:
-    """Query Prometheus instant API. Returns result list."""
     try:
         headers = {"Authorization": f"Bearer {settings.prometheus_token}"}
         async with httpx.AsyncClient(verify=False, timeout=15) as client:
@@ -38,55 +39,14 @@ async def prom_query(query: str) -> list:
                 params={"query": query}
             )
             r.raise_for_status()
-            data = r.json()
-            return data.get("data", {}).get("result", [])
+            return r.json().get("data", {}).get("result", [])
     except Exception as e:
-        logger.error(f"Prometheus query failed: {query[:60]} — {e}")
+        logger.error(f"Prometheus query failed [{query[:50]}]: {e}")
         return []
 
-async def prom_query_range(query: str, duration: str = "1h", step: str = "5m") -> list:
-    """Query Prometheus range API. Returns result list with values array."""
-    try:
-        import time
-        end   = int(time.time())
-        start = end - _duration_to_seconds(duration)
-        headers = {"Authorization": f"Bearer {settings.prometheus_token}"}
-        async with httpx.AsyncClient(verify=False, timeout=15) as client:
-            r = await client.get(
-                f"{settings.prometheus_url}/api/v1/query_range",
-                headers=headers,
-                params={"query": query, "start": start, "end": end, "step": step}
-            )
-            r.raise_for_status()
-            data = r.json()
-            return data.get("data", {}).get("result", [])
-    except Exception as e:
-        logger.error(f"Prometheus range query failed: {e}")
-        return []
-
-def _duration_to_seconds(d: str) -> int:
-    if d.endswith("h"): return int(d[:-1]) * 3600
-    if d.endswith("m"): return int(d[:-1]) * 60
-    if d.endswith("d"): return int(d[:-1]) * 86400
-    return 3600
-
-def _val(result_list: list, label_key: str = None, label_val: str = None) -> dict:
-    """Extract {label: value} dict from Prometheus instant result."""
-    out = {}
-    for r in result_list:
-        metric = r.get("metric", {})
-        val    = float(r.get("value", [0, 0])[1])
-        key    = metric.get(label_key, "unknown") if label_key else "value"
-        if label_val:
-            if metric.get(label_key) == label_val:
-                return val
-        out[key] = val
-    return out
-
-# ── AAP inventory helper ────────────────────────────────────────────────────────
+# ── AAP inventory helper ───────────────────────────────────────────────────────
 
 async def get_aap_vms(inventory_id: int = 2) -> list:
-    """Fetch hosts from AAP inventory. Returns list of {name, ip}."""
     try:
         headers = {
             "Authorization": f"Bearer {AAP_TOKEN}",
@@ -102,7 +62,6 @@ async def get_aap_vms(inventory_id: int = 2) -> list:
             vms = []
             for h in hosts:
                 name = h.get("name", "")
-                # Get IP from variables or name
                 variables = h.get("variables", "{}")
                 ip = ""
                 try:
@@ -112,12 +71,113 @@ async def get_aap_vms(inventory_id: int = 2) -> list:
                 except Exception:
                     pass
                 if not ip:
-                    ip = name  # fallback — use hostname
+                    # Try to resolve from name if it looks like an IP
+                    import re
+                    ip_match = re.search(r'(\d+\.\d+\.\d+\.\d+)', name)
+                    ip = ip_match.group(1) if ip_match else name
                 vms.append({"name": name, "ip": ip, "inventory_id": inventory_id})
             return vms
     except Exception as e:
         logger.error(f"AAP inventory fetch failed: {e}")
         return []
+
+# ── Direct node_exporter query for VMs ────────────────────────────────────────
+
+def parse_metric_line(lines: str, metric_name: str, labels: dict = None) -> float:
+    """Parse a specific metric value from node_exporter text output."""
+    for line in lines.splitlines():
+        if line.startswith('#') or not line.strip():
+            continue
+        if not line.startswith(metric_name):
+            continue
+        # Check label filters
+        if labels:
+            match = True
+            for k, v in labels.items():
+                if f'{k}="{v}"' not in line:
+                    match = False
+                    break
+            if not match:
+                continue
+        # Extract value
+        parts = line.rsplit(' ', 1)
+        if len(parts) == 2:
+            try:
+                return float(parts[1].strip())
+            except ValueError:
+                continue
+    return 0.0
+
+async def query_node_exporter(ip: str, port: int = 9100) -> dict:
+    """Query a single VM's node_exporter directly. Returns metrics dict."""
+    try:
+        async with httpx.AsyncClient(verify=False, timeout=5) as client:
+            r = await client.get(f"http://{ip}:{port}/metrics")
+            r.raise_for_status()
+            text = r.text
+
+        # CPU — sum idle across all CPUs, calculate usage
+        cpu_idle_total = 0.0
+        cpu_total_total = 0.0
+        cpu_counts = {}
+        for line in text.splitlines():
+            if line.startswith('#') or not line.strip():
+                continue
+            if line.startswith('node_cpu_seconds_total{'):
+                parts = line.rsplit(' ', 1)
+                if len(parts) == 2:
+                    val = float(parts[1].strip())
+                    cpu = 'unknown'
+                    if 'cpu="' in line:
+                        cpu = line.split('cpu="')[1].split('"')[0]
+                    mode = ''
+                    if 'mode="' in line:
+                        mode = line.split('mode="')[1].split('"')[0]
+                    if cpu not in cpu_counts:
+                        cpu_counts[cpu] = {'idle': 0, 'total': 0}
+                    cpu_counts[cpu]['total'] += val
+                    if mode == 'idle':
+                        cpu_counts[cpu]['idle'] += val
+
+        # Calculate CPU usage % — note: these are cumulative counters
+        # We can approximate from the ratio of idle to total
+        total_idle = sum(c['idle'] for c in cpu_counts.values())
+        total_all  = sum(c['total'] for c in cpu_counts.values())
+        cpu_pct = round((1 - total_idle / total_all) * 100, 1) if total_all > 0 else 0.0
+
+        # Memory
+        mem_total = parse_metric_line(text, 'node_memory_MemTotal_bytes ')
+        mem_avail = parse_metric_line(text, 'node_memory_MemAvailable_bytes ')
+        mem_pct   = round((1 - mem_avail / mem_total) * 100, 1) if mem_total > 0 else 0.0
+
+        # Disk (root filesystem)
+        disk_size  = parse_metric_line(text, 'node_filesystem_size_bytes{', {'mountpoint': '/'})
+        disk_avail = parse_metric_line(text, 'node_filesystem_avail_bytes{', {'mountpoint': '/'})
+        disk_pct   = round((1 - disk_avail / disk_size) * 100, 1) if disk_size > 0 else 0.0
+
+        # Load average
+        load_1m = parse_metric_line(text, 'node_load1 ')
+
+        # Uptime
+        boot_time = parse_metric_line(text, 'node_boot_time_seconds ')
+        uptime_hours = round((time.time() - boot_time) / 3600, 1) if boot_time > 0 else 0
+
+        # Memory total GB
+        mem_total_gb = round(mem_total / 1073741824, 1) if mem_total > 0 else 0
+
+        return {
+            "online":       True,
+            "cpu_pct":      cpu_pct,
+            "mem_pct":      mem_pct,
+            "mem_total_gb": mem_total_gb,
+            "disk_pct":     disk_pct,
+            "load_1m":      round(load_1m, 2),
+            "uptime_hours": int(uptime_hours),
+        }
+    except Exception as e:
+        logger.warning(f"node_exporter unreachable at {ip}:{port} — {e}")
+        return {"online": False, "cpu_pct": 0, "mem_pct": 0, "mem_total_gb": 0,
+                "disk_pct": 0, "load_1m": 0, "uptime_hours": 0}
 
 # ── Config endpoints ────────────────────────────────────────────────────────────
 
@@ -126,29 +186,23 @@ class NamespaceRequest(BaseModel):
 
 @router.get("/config")
 async def get_config():
-    """Get watched namespaces and VM inventory config from MongoDB."""
     try:
         docs = await mongo_service._db.metrics_config.find({}).to_list(100)
         namespaces = [d for d in docs if d.get("type") == "namespace"]
         vm_config  = next((d for d in docs if d.get("type") == "vm_inventory"), None)
-
-        # Convert ObjectId to string
         for d in namespaces:
             d["_id"] = str(d["_id"])
         if vm_config:
             vm_config["_id"] = str(vm_config["_id"])
-
         return {
             "namespaces": [{"name": d["name"], "enabled": d.get("enabled", True)} for d in namespaces],
             "vm_inventory": vm_config or {"aap_inventory_id": 2, "scrape_port": 9100}
         }
     except Exception as e:
-        logger.error(f"Config fetch failed: {e}")
         return {"namespaces": [], "vm_inventory": {"aap_inventory_id": 2, "scrape_port": 9100}}
 
 @router.post("/config/namespace")
 async def add_namespace(req: NamespaceRequest):
-    """Add a namespace to watch. Idempotent."""
     ns = req.namespace.strip()
     if not ns:
         raise HTTPException(status_code=400, detail="namespace required")
@@ -159,108 +213,58 @@ async def add_namespace(req: NamespaceRequest):
                       "added_at": datetime.now(timezone.utc).isoformat()}},
             upsert=True
         )
-        logger.info(f"Namespace added to metrics config: {ns}")
         return {"status": "ok", "namespace": ns}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/config/namespace/{namespace}")
 async def remove_namespace(namespace: str):
-    """Remove a namespace from watch list."""
     try:
-        await mongo_service._db.metrics_config.delete_one(
-            {"type": "namespace", "name": namespace}
-        )
+        await mongo_service._db.metrics_config.delete_one({"type": "namespace", "name": namespace})
         return {"status": "ok", "namespace": namespace, "removed": True}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# ── Node metrics ────────────────────────────────────────────────────────────────
+# ── Node metrics — Prometheus with instance=hostname label ─────────────────────
 
 @router.get("/nodes")
 async def get_nodes():
-    """All OCP nodes — CPU, Memory, Disk per node."""
     try:
-        # CPU usage % per node (1 - idle)
-        cpu_results = await prom_query(
-            '100 - (avg by (node) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)'
+        # ── instance label = hostname (e.g. ocp-mig2-ctrl1.gruveai.com) ──
+        cpu_results  = await prom_query(
+            '100 - (avg by (instance) (rate(node_cpu_seconds_total{job="node-exporter",mode="idle"}[5m])) * 100)'
         )
-        # Memory usage % per node
-        mem_results = await prom_query(
-            '100 * (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes))'
+        mem_results  = await prom_query(
+            '100 * (1 - (node_memory_MemAvailable_bytes{job="node-exporter"} / node_memory_MemTotal_bytes{job="node-exporter"}))'
         )
-        # Memory total GB per node
-        mem_total_results = await prom_query(
-            'node_memory_MemTotal_bytes'
-        )
-        # Disk usage % per node (root fs)
+        mem_tot_results = await prom_query('node_memory_MemTotal_bytes{job="node-exporter"}')
         disk_results = await prom_query(
-            '100 - (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"} * 100)'
+            '100 - (node_filesystem_avail_bytes{job="node-exporter",mountpoint="/"} / node_filesystem_size_bytes{job="node-exporter",mountpoint="/"} * 100)'
         )
-        # Node ready status
-        node_ready_results = await prom_query(
-            'kube_node_status_condition{condition="Ready",status="true"}'
-        )
+        ready_results = await prom_query('kube_node_status_condition{condition="Ready",status="true"}')
+        node_info_results = await prom_query('kube_node_info')
+        node_role_results = await prom_query('kube_node_role')
 
-        # Build lookup maps
-        cpu_map      = {r["metric"].get("node",""):     round(float(r["value"][1]),1) for r in cpu_results}
-        mem_map      = {r["metric"].get("instance",""): round(float(r["value"][1]),1) for r in mem_results}
-        mem_tot_map  = {r["metric"].get("instance",""): round(float(r["value"][1])/1073741824,1) for r in mem_total_results}
-        disk_map     = {r["metric"].get("instance",""): round(float(r["value"][1]),1) for r in disk_results}
-        ready_map    = {r["metric"].get("node",""):     float(r["value"][1]) == 1 for r in node_ready_results}
-
-        # ── Dynamic node discovery from Prometheus ──────────────────────────
-        # Discovers ALL nodes automatically — no hardcoding
-        # Adding a new node to OCP = appears here automatically
-        node_info_results = await prom_query(
-            'kube_node_info'
-        )
-        node_role_results = await prom_query(
-            'kube_node_role'
-        )
-
-        # Build role map: node_name → role
-        role_map = {}
-        for r in node_role_results:
-            node = r["metric"].get("node", "")
-            role = r["metric"].get("role", "worker")
-            role_map[node] = role
-
-        # Build node → internal_ip map from kube_node_info
-        node_ip_map = {}
-        for r in node_info_results:
-            node       = r["metric"].get("node", "")
-            internal_ip = r["metric"].get("internal_ip", "")
-            node_ip_map[node] = internal_ip
-
-        # If kube_node_info does not have internal_ip, fall back to
-        # node_ipaddress or derive from ready_map keys
-        if not node_ip_map:
-            # Fallback: discover from node_memory metric which has instance label
-            node_mem_results = await prom_query('node_memory_MemTotal_bytes')
-            for r in node_mem_results:
-                instance = r["metric"].get("instance", "")
-                ip = instance.split(":")[0]
-                # Try to match to a node name via ready_map
-                for node_name in ready_map:
-                    if ip and ip not in [v for v in node_ip_map.values()]:
-                        node_ip_map[node_name] = ip
-                        break
+        # All use instance=hostname
+        cpu_map     = {r["metric"].get("instance",""): round(float(r["value"][1]),1) for r in cpu_results}
+        mem_map     = {r["metric"].get("instance",""): round(float(r["value"][1]),1) for r in mem_results}
+        mem_tot_map = {r["metric"].get("instance",""): round(float(r["value"][1])/1073741824,1) for r in mem_tot_results}
+        disk_map    = {r["metric"].get("instance",""): round(float(r["value"][1]),1) for r in disk_results}
+        ready_map   = {r["metric"].get("node",""):     float(r["value"][1])==1 for r in ready_results}
+        role_map    = {r["metric"].get("node",""):     r["metric"].get("role","worker") for r in node_role_results}
+        ip_map      = {r["metric"].get("node",""):     r["metric"].get("internal_ip","") for r in node_info_results}
 
         nodes = []
-        for node_name in ready_map.keys():
-            ip           = node_ip_map.get(node_name, "")
-            instance_key = f"{ip}:9100" if ip else ""
-            role         = role_map.get(node_name, "worker")
+        for node_name in ready_map:
             nodes.append({
                 "name":         node_name,
-                "ip":           ip,
-                "role":         role,
+                "ip":           ip_map.get(node_name, ""),
+                "role":         role_map.get(node_name, "worker"),
                 "ready":        ready_map.get(node_name, True),
                 "cpu_pct":      cpu_map.get(node_name, 0),
-                "mem_pct":      mem_map.get(instance_key, 0),
-                "mem_total_gb": mem_tot_map.get(instance_key, 0),
-                "disk_pct":     disk_map.get(instance_key, 0),
+                "mem_pct":      mem_map.get(node_name, 0),
+                "mem_total_gb": mem_tot_map.get(node_name, 0),
+                "disk_pct":     disk_map.get(node_name, 0),
             })
 
         return {"nodes": nodes, "total": len(nodes)}
@@ -268,148 +272,93 @@ async def get_nodes():
         logger.error(f"Node metrics failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# ── Pod metrics ─────────────────────────────────────────────────────────────────
+# ── Pod metrics ────────────────────────────────────────────────────────────────
 
 @router.get("/pods/{namespace}")
 async def get_pods(namespace: str):
-    """Pods in a namespace — CPU and Memory usage."""
     try:
-        # CPU cores per pod
         cpu_results = await prom_query(
             f'sum by (pod) (rate(container_cpu_usage_seconds_total{{namespace="{namespace}",container!=""}}[5m]))'
         )
-        # Memory MB per pod
         mem_results = await prom_query(
             f'sum by (pod) (container_memory_working_set_bytes{{namespace="{namespace}",container!=""}})'
         )
-        # Pod ready status
         ready_results = await prom_query(
             f'kube_pod_status_ready{{namespace="{namespace}",condition="true"}}'
         )
 
-        cpu_map   = {r["metric"].get("pod",""): round(float(r["value"][1])*1000, 1) for r in cpu_results}  # millicores
-        mem_map   = {r["metric"].get("pod",""): round(float(r["value"][1])/1048576, 1) for r in mem_results}  # MB
-        ready_map = {r["metric"].get("pod",""): float(r["value"][1]) == 1 for r in ready_results}
+        cpu_map   = {r["metric"].get("pod",""): round(float(r["value"][1])*1000,1) for r in cpu_results}
+        mem_map   = {r["metric"].get("pod",""): round(float(r["value"][1])/1048576,1) for r in mem_results}
+        ready_map = {r["metric"].get("pod",""): float(r["value"][1])==1 for r in ready_results}
 
-        all_pods = set(list(cpu_map.keys()) + list(mem_map.keys()) + list(ready_map.keys()))
-        pods = []
-        for pod in sorted(all_pods):
-            pods.append({
-                "name":       pod,
-                "namespace":  namespace,
-                "ready":      ready_map.get(pod, False),
-                "cpu_milli":  cpu_map.get(pod, 0),
-                "mem_mb":     mem_map.get(pod, 0),
-            })
+        all_pods = set(list(cpu_map)+list(mem_map)+list(ready_map))
+        pods = [{"name":p,"namespace":namespace,"ready":ready_map.get(p,False),
+                 "cpu_milli":cpu_map.get(p,0),"mem_mb":mem_map.get(p,0)}
+                for p in sorted(all_pods)]
 
         return {"namespace": namespace, "pods": pods, "total": len(pods)}
     except Exception as e:
-        logger.error(f"Pod metrics failed for {namespace}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# ── VM metrics ─────────────────────────────────────────────────────────────────
+# ── VM metrics — direct node_exporter queries ──────────────────────────────────
 
 @router.get("/vms")
 async def get_vms():
-    """
-    VM metrics — auto-discovered from AAP inventory.
-    Queries node_exporter on each VM via Prometheus.
-    Adding a new VM to AAP inventory automatically includes it here.
-    """
     try:
-        # Get VM config from MongoDB
-        vm_config = await mongo_service._db.metrics_config.find_one({"type": "vm_inventory"})
+        vm_config    = await mongo_service._db.metrics_config.find_one({"type": "vm_inventory"})
         inventory_id = vm_config.get("aap_inventory_id", 2) if vm_config else 2
         scrape_port  = vm_config.get("scrape_port", 9100) if vm_config else 9100
 
-        # Auto-discover VMs from AAP inventory
         vms = await get_aap_vms(inventory_id)
         if not vms:
-            return {"vms": [], "total": 0, "message": "No VMs in AAP inventory"}
+            return {"vms": [], "total": 0}
 
-        # Build instance filter for Prometheus
-        instance_filter = "|".join([f"{vm['ip']}:{scrape_port}" for vm in vms if vm.get('ip')])
+        # Query all VMs concurrently
+        import asyncio
+        tasks   = [query_node_exporter(vm["ip"], scrape_port) for vm in vms]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # Query all VM metrics in one shot
-        cpu_results  = await prom_query(
-            f'100 - (avg by (instance) (rate(node_cpu_seconds_total{{mode="idle",instance=~"{instance_filter}"}}[5m])) * 100)'
-        )
-        mem_results  = await prom_query(
-            f'100 * (1 - (node_memory_MemAvailable_bytes{{instance=~"{instance_filter}"}} / node_memory_MemTotal_bytes{{instance=~"{instance_filter}"}}))'
-        )
-        disk_results = await prom_query(
-            f'100 - (node_filesystem_avail_bytes{{mountpoint="/",instance=~"{instance_filter}"}} / node_filesystem_size_bytes{{mountpoint="/",instance=~"{instance_filter}"}} * 100)'
-        )
-        load_results = await prom_query(
-            f'node_load1{{instance=~"{instance_filter}"}}'
-        )
-        mem_total_results = await prom_query(
-            f'node_memory_MemTotal_bytes{{instance=~"{instance_filter}"}}'
-        )
-        uptime_results = await prom_query(
-            f'node_time_seconds{{instance=~"{instance_filter}"}} - node_boot_time_seconds{{instance=~"{instance_filter}"}}'
-        )
-
-        cpu_map      = {r["metric"].get("instance","").split(":")[0]: round(float(r["value"][1]),1) for r in cpu_results}
-        mem_map      = {r["metric"].get("instance","").split(":")[0]: round(float(r["value"][1]),1) for r in mem_results}
-        disk_map     = {r["metric"].get("instance","").split(":")[0]: round(float(r["value"][1]),1) for r in disk_results}
-        load_map     = {r["metric"].get("instance","").split(":")[0]: round(float(r["value"][1]),2) for r in load_results}
-        mem_tot_map  = {r["metric"].get("instance","").split(":")[0]: round(float(r["value"][1])/1073741824,1) for r in mem_total_results}
-        uptime_map   = {r["metric"].get("instance","").split(":")[0]: int(float(r["value"][1])/3600) for r in uptime_results}
-
-        result = []
-        for vm in vms:
-            ip = vm.get("ip","")
-            result.append({
-                "name":         vm["name"],
-                "ip":           ip,
-                "scrape_port":  scrape_port,
-                "online":       ip in cpu_map,
-                "cpu_pct":      cpu_map.get(ip, 0),
-                "mem_pct":      mem_map.get(ip, 0),
-                "mem_total_gb": mem_tot_map.get(ip, 0),
-                "disk_pct":     disk_map.get(ip, 0),
-                "load_1m":      load_map.get(ip, 0),
-                "uptime_hours": uptime_map.get(ip, 0),
+        output = []
+        for vm, result in zip(vms, results):
+            if isinstance(result, Exception):
+                result = {"online": False, "cpu_pct":0,"mem_pct":0,"mem_total_gb":0,
+                          "disk_pct":0,"load_1m":0,"uptime_hours":0}
+            output.append({
+                "name":        vm["name"],
+                "ip":          vm["ip"],
+                "scrape_port": scrape_port,
+                **result
             })
 
-        return {"vms": result, "total": len(result), "inventory_id": inventory_id}
+        return {"vms": output, "total": len(output), "inventory_id": inventory_id}
     except Exception as e:
         logger.error(f"VM metrics failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# ── Fleet summary ───────────────────────────────────────────────────────────────
+# ── Fleet summary ──────────────────────────────────────────────────────────────
 
 @router.get("/fleet")
 async def get_fleet():
-    """High-level summary — node count, pod count, VM health."""
     try:
-        node_data = await get_nodes()
-        nodes     = node_data.get("nodes", [])
-
-        # Get watched namespaces
-        config   = await get_config()
-        ns_list  = [n["name"] for n in config.get("namespaces", []) if n.get("enabled")]
-
+        node_data  = await get_nodes()
+        nodes      = node_data.get("nodes", [])
+        config     = await get_config()
+        ns_list    = [n["name"] for n in config.get("namespaces",[]) if n.get("enabled")]
         total_pods = 0
         for ns in ns_list:
             pod_data    = await get_pods(ns)
             total_pods += pod_data.get("total", 0)
-
-        vm_data = await get_vms()
-        vms     = vm_data.get("vms", [])
-
+        vm_data    = await get_vms()
+        vms        = vm_data.get("vms", [])
         online_nodes = sum(1 for n in nodes if n.get("ready"))
         online_vms   = sum(1 for v in vms if v.get("online"))
-        avg_cpu      = round(sum(n.get("cpu_pct",0) for n in nodes) / max(len(nodes),1), 1)
-        avg_mem      = round(sum(n.get("mem_pct",0) for n in nodes) / max(len(nodes),1), 1)
-
+        avg_cpu      = round(sum(n.get("cpu_pct",0) for n in nodes)/max(len(nodes),1),1)
+        avg_mem      = round(sum(n.get("mem_pct",0) for n in nodes)/max(len(nodes),1),1)
         return {
-            "nodes":        {"total": len(nodes), "online": online_nodes},
-            "pods":         {"total": total_pods, "namespaces": len(ns_list)},
-            "vms":          {"total": len(vms), "online": online_vms},
-            "cluster_avg":  {"cpu_pct": avg_cpu, "mem_pct": avg_mem},
+            "nodes":       {"total":len(nodes),"online":online_nodes},
+            "pods":        {"total":total_pods,"namespaces":len(ns_list)},
+            "vms":         {"total":len(vms),"online":online_vms},
+            "cluster_avg": {"cpu_pct":avg_cpu,"mem_pct":avg_mem},
         }
     except Exception as e:
-        logger.error(f"Fleet summary failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
