@@ -88,7 +88,128 @@ function VMCard({ vm }) {
     </div>
   )
 }
-function PodTable({ namespace, onRemove }) {
+function NamespacePanel({ namespace, onRemove }) {
+  const [pods,         setPods]         = useState([])
+  const [loading,      setLoading]      = useState(true)
+  const [selectedPods, setSelectedPods] = useState(null)
+  const [pickMode,     setPickMode]     = useState(false)
+
+  const loadPods = async () => {
+    try {
+      setLoading(true)
+      const r = await fetch(`${API}/api/v1/metrics/pods/${namespace}`)
+      const d = await r.json()
+      setPods(d.pods || [])
+    } catch(e) { setPods([]) }
+    finally { setLoading(false) }
+  }
+
+  useEffect(() => { loadPods(); const t=setInterval(loadPods,30000); return ()=>clearInterval(t) }, [namespace])
+
+  const togglePod = (podName) => {
+    setSelectedPods(prev => {
+      const s = new Set(prev === null ? pods.map(p => p.name) : prev)
+      if (s.has(podName)) s.delete(podName); else s.add(podName)
+      return new Set(s)
+    })
+  }
+
+  const visiblePods = selectedPods === null ? pods : pods.filter(p => selectedPods.has(p.name))
+
+  return (
+    <div style={{ background:'var(--bg-surface)', border:'1px solid var(--bg-border)', borderRadius:10, overflow:'hidden', marginBottom:14 }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 16px',
+        borderBottom:'1px solid var(--bg-border)', background:'rgba(0,0,0,0.15)' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          <Box size={14} color="var(--gruve-green)" />
+          <span style={{ fontSize:13, fontWeight:700 }}>{namespace}</span>
+          {!loading && <span style={{ fontSize:11, color:'var(--text-muted)' }}>{visiblePods.length}/{pods.length} pods</span>}
+        </div>
+        <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+          <button onClick={() => setPickMode(p => !p)} style={{
+            fontSize:11, padding:'3px 10px', borderRadius:6, cursor:'pointer',
+            border: pickMode ? '1px solid var(--gruve-green)' : '1px solid var(--bg-border)',
+            background: pickMode ? 'rgba(0,166,82,0.12)' : 'transparent',
+            color: pickMode ? 'var(--gruve-green)' : 'var(--text-muted)', fontWeight:600 }}>
+            {pickMode ? '✓ Done' : 'Select Pods'}
+          </button>
+          <button onClick={() => onRemove(namespace)}
+            style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text-muted)', padding:4 }}>
+            <X size={14} />
+          </button>
+        </div>
+      </div>
+
+      {pickMode && !loading && pods.length > 0 && (
+        <div style={{ padding:'12px 16px', borderBottom:'1px solid var(--bg-border)', background:'rgba(0,166,82,0.04)' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:10 }}>
+            <span style={{ fontSize:11, fontWeight:700, color:'var(--text-secondary)' }}>CHOOSE PODS TO MONITOR</span>
+            <button onClick={() => setSelectedPods(null)}
+              style={{ fontSize:11, padding:'2px 8px', borderRadius:5, cursor:'pointer',
+                border:'1px solid var(--bg-border)', background:'transparent', color:'var(--gruve-green)' }}>All</button>
+            <button onClick={() => setSelectedPods(new Set())}
+              style={{ fontSize:11, padding:'2px 8px', borderRadius:5, cursor:'pointer',
+                border:'1px solid var(--bg-border)', background:'transparent', color:'#ef4444' }}>None</button>
+          </div>
+          <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
+            {pods.map(pod => {
+              const active = selectedPods === null || selectedPods.has(pod.name)
+              return (
+                <button key={pod.name} onClick={() => togglePod(pod.name)} style={{
+                  fontSize:11, padding:'4px 10px', borderRadius:6, cursor:'pointer', fontFamily:'monospace',
+                  border: active ? '1px solid var(--gruve-green)' : '1px solid var(--bg-border)',
+                  background: active ? 'rgba(0,166,82,0.12)' : 'transparent',
+                  color: active ? 'var(--gruve-green)' : 'var(--text-muted)' }}>
+                  {active ? '✓ ' : ''}{pod.name}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <div style={{ padding:16, fontSize:12, color:'var(--text-muted)', textAlign:'center' }}>Loading pods...</div>
+      ) : pods.length===0 ? (
+        <div style={{ padding:16, fontSize:12, color:'var(--text-muted)', textAlign:'center' }}>No pods found in {namespace}</div>
+      ) : visiblePods.length===0 ? (
+        <div style={{ padding:16, fontSize:12, color:'var(--text-muted)', textAlign:'center' }}>
+          No pods selected — click Select Pods to choose
+        </div>
+      ) : (
+        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
+          <thead><tr style={{ borderBottom:'1px solid var(--bg-border)' }}>
+            {['Pod','Status','CPU (m)','Memory (MB)'].map(h => (
+              <th key={h} style={{ padding:'7px 16px', textAlign:'left', fontSize:11,
+                color:'var(--text-muted)', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.05em' }}>{h}</th>
+            ))}
+          </tr></thead>
+          <tbody>{visiblePods.map((pod,i) => (
+            <tr key={pod.name} style={{ borderBottom: i<visiblePods.length-1 ? '1px solid var(--bg-border)' : 'none',
+              background: i%2===0 ? 'transparent' : 'rgba(0,0,0,0.06)' }}>
+              <td style={{ padding:'8px 16px', fontFamily:'monospace', fontSize:11 }}>{pod.name}</td>
+              <td style={{ padding:'8px 16px' }}>
+                <Badge label={pod.ready ? 'Ready' : 'Not Ready'} color={pod.ready ? 'var(--gruve-green)' : '#ef4444'} />
+              </td>
+              <td style={{ padding:'8px 16px' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                  <span style={{ color:colorFor(pod.cpu_milli/10), fontWeight:600, minWidth:40 }}>{pod.cpu_milli}m</span>
+                  <div style={{ flex:1, minWidth:60 }}><Bar value={Math.min(100,pod.cpu_milli/10)} /></div>
+                </div>
+              </td>
+              <td style={{ padding:'8px 16px' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                  <span style={{ color:colorFor(pod.mem_mb/20), fontWeight:600, minWidth:50 }}>{pod.mem_mb}</span>
+                  <div style={{ flex:1, minWidth:60 }}><Bar value={Math.min(100,pod.mem_mb/20)} /></div>
+                </div>
+              </td>
+            </tr>
+          ))}</tbody>
+        </table>
+      )}
+    </div>
+  )
+}) {
   const [pods,    setPods]    = useState([])
   const [loading, setLoading] = useState(true)
   useEffect(() => {
@@ -221,7 +342,7 @@ export default function Metrics() {
               <div style={{ display:'flex', gap:10, alignItems:'center', marginBottom:20, padding:'12px 16px', background:'var(--bg-surface)', border:'1px solid var(--bg-border)', borderRadius:10 }}>
                 <Box size={16} color="var(--gruve-green)" />
                 <input value={nsInput} onChange={e=>setNsInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addNamespace()} placeholder="Enter namespace (e.g. gruve-noc, aap, openshift-monitoring)" style={{ flex:1, background:'transparent', border:'none', outline:'none', fontSize:13, color:'var(--text-primary)' }} />
-                <button onClick={addNamespace} disabled={adding||!nsInput.trim()} style={{ display:'flex', alignItems:'center', gap:6, padding:'6px 14px', fontSize:12, borderRadius:8, background:'var(--gruve-green)', border:'none', color:'#000', fontWeight:700, cursor:'pointer', opacity:adding||!nsInput.trim()?0.5:1 }}><Plus size={13}/>{adding?'Adding...':'Add Namespace'}</button>
+                <button onClick={addNamespace} disabled={adding||!nsInput.trim()} style={{ display:'flex', alignItems:'center', gap:6, padding:'6px 14px', fontSize:12, borderRadius:8, background:'var(--gruve-green)', border:'none', color:'#000', fontWeight:700, cursor:'pointer', background: nsInput.trim() ? 'var(--gruve-green)' : 'var(--bg-border)', color: nsInput.trim() ? '#000' : 'var(--text-muted)', cursor: nsInput.trim() ? 'pointer' : 'not-allowed', transition:'all 0.15s' }><Plus size={13}/>{adding?'Adding...':'Add Namespace'}</button>
               </div>
               {namespaces.length===0 ? (
                 <div style={{ textAlign:'center', padding:60, color:'var(--text-muted)', fontSize:13, background:'var(--bg-surface)', border:'1px solid var(--bg-border)', borderRadius:10 }}>
@@ -229,7 +350,7 @@ export default function Metrics() {
                   <div style={{ fontWeight:600, marginBottom:6 }}>No namespaces added yet</div>
                   <div style={{ fontSize:12 }}>Type a namespace above and press Enter</div>
                 </div>
-              ) : namespaces.filter(n=>n.enabled).map(n=><PodTable key={n.name} namespace={n.name} onRemove={removeNamespace}/>)}
+              ) : namespaces.filter(n=>n.enabled).map(n=><NamespacePanel key={n.name} namespace={n.name} onRemove={removeNamespace}/>)}
             </div>
           )}
         </>
