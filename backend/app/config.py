@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     qdrant_collection: str      = Field("meraki_noc_knowledge", env="QDRANT_COLLECTION_NAME")
     qdrant_retrieval_limit: int = Field(5, env="RAG_RETRIEVAL_LIMIT")
     qdrant_timeout: float       = Field(30.0, env="QDRANT_TIMEOUT")
+    # ── Prometheus ────────────────────────────────────────────────────────
+    prometheus_url: str   = Field("", env="PROMETHEUS_URL")
+    prometheus_token: str = Field("", env="PROMETHEUS_TOKEN")
 
     # ── ServiceNow ────────────────────────────────────────────────────────────
     snow_instance_url: str   = Field(..., env="SNOW_INSTANCE_URL")
