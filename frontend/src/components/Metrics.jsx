@@ -114,6 +114,13 @@ function NamespacePanel({ namespace, onRemove }) {
     })
   }
 
+  // When pods load for first time, default all selected
+  useEffect(() => {
+    if (pods.length > 0 && selectedPods === null) {
+      setSelectedPods(null) // null = all selected
+    }
+  }, [pods.length])
+
   const visiblePods = selectedPods === null ? pods : pods.filter(p => selectedPods.has(p.name))
 
   return (
