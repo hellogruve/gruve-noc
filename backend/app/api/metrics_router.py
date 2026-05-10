@@ -65,15 +65,20 @@ async def get_aap_vms(inventory_id: int = 2) -> list:
                 variables = h.get("variables", "{}")
                 ip = ""
                 try:
-                    import json as _json
-                    vars_dict = _json.loads(variables) if isinstance(variables, str) else variables
-                    ip = vars_dict.get("ansible_host", "")
+                    import json as _json, re as _re
+                    # Try JSON first
+                    if variables.strip().startswith("{"):
+                        vars_dict = _json.loads(variables)
+                        ip = vars_dict.get("ansible_host", "")
+                    else:
+                        # YAML format — extract ansible_host with regex
+                        match = _re.search(r'ansible_host:\s*([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)', variables)
+                        ip = match.group(1) if match else ""
                 except Exception:
                     pass
                 if not ip:
-                    # Try to resolve from name if it looks like an IP
-                    import re
-                    ip_match = re.search(r'(\d+\.\d+\.\d+\.\d+)', name)
+                    import re as _re
+                    ip_match = _re.search(r'(\d+\.\d+\.\d+\.\d+)', name)
                     ip = ip_match.group(1) if ip_match else name
                 vms.append({"name": name, "ip": ip, "inventory_id": inventory_id})
             return vms
