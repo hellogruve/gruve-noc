@@ -106,6 +106,12 @@ function NamespacePanel({ namespace, onRemove }) {
 
   useEffect(() => { loadPods(); const t=setInterval(loadPods,30000); return ()=>clearInterval(t) }, [namespace])
 
+  // Reset selection when pod names change (new deployment rolled out)
+  const podNamesKey = pods.map(p=>p.name).sort().join(',')
+  useEffect(() => {
+    if (pods.length > 0) setSelectedPods(null) // null = all pods visible
+  }, [podNamesKey])
+
   const togglePod = (podName) => {
     setSelectedPods(prev => {
       const s = new Set(prev === null ? pods.map(p => p.name) : prev)
