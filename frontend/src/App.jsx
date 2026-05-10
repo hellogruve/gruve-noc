@@ -9,6 +9,7 @@ import DeviceMap from './components/DeviceMap.jsx'
 import EventLogs from './components/EventLogs.jsx'
 import VulnerabilityManagement from './components/VulnerabilityManagement.jsx'
 import AISummary from './components/AISummary.jsx'
+import Metrics from './components/Metrics.jsx'
 import gruveLogo from './assets/gruve-logo.png'
 
 const API = import.meta.env.VITE_API_BASE_URL || ''
@@ -364,7 +365,7 @@ export default function App() {
         {activeTab === 'ai_ops'         && <NocAI api={API} pendingCmd={pendingCmd} onCmdConsumed={() => setPendingCmd(null)} />}
         {activeTab === 'remediation'    && <RemediationPanel incident={selectedIncident} api={API} />}
         {activeTab === 'integrations'   && <Integrations />}
-        {activeTab === 'governance'     && <Governance />}
+        {activeTab === 'governance'     && <Metrics />}
       </main>
     </div>
   )

@@ -23,6 +23,7 @@ from app.services.snmp_receiver import start_snmp_receiver
 from app.api.integrations import router as integrations_router
 from app.api.integrations import webhook_router
 from app.api.vulnerability_router import router as vuln_router
+from app.api.metrics_router import router as metrics_router
 
 
 
@@ -103,3 +104,4 @@ app.include_router(ai_router, prefix="/api/v1")
 app.include_router(integrations_router, prefix="/api/v1")
 app.include_router(webhook_router, prefix="/api/v1")
 app.include_router(vuln_router)
+app.include_router(metrics_router, prefix="/api/v1")
