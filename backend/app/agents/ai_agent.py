@@ -10,6 +10,7 @@ import asyncio
 import time
 
 logger = logging.getLogger(__name__)
+from app.services.llm import llm_service
 
 QWEN_URL  = "https://qwen25-7b-instruct-noc-agent.apps.ocp-mig2.gruveai.com/v1"
 MCP_URL   = "https://ansible-mcp-aap.apps.ocp-mig2.gruveai.com/mcp"
@@ -271,14 +272,8 @@ User: restart haproxy service       → {{"tool": "job_templates_launch_create",
 User: relaunch job 452              → {{"tool": "jobs_relaunch_create", "args": {{"id": 452}}}}
 User: show output of job 452        → {{"tool": "jobs_stdout_retrieve", "args": {{"id": 452}}}}"""
 
-    async with httpx.AsyncClient(verify=False, timeout=60) as c:
-        resp = await c.post(
-            f"{QWEN_URL}/chat/completions",
-            json={"model": MODEL,
-                  "messages": [{"role":"system","content":system_prompt},
-                               {"role":"user","content":message}],
-                  "temperature": 0.1, "max_tokens": 512})
-    return resp.json()["choices"][0]["message"]["content"]
+    # Use llm_service — respects LLM_PROVIDER env var (gemini/qwen/openai/claude)
+    return await llm_service.complete(system_prompt, message)
 
 
 def _extract_json(text: str):
