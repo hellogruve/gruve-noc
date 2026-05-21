@@ -19,7 +19,7 @@ spec:
       serviceAccountName: default
       containers:
       - name: noc-agent-be
-        image: registry.gruveai.com/gruve-noc/noc-agent-backend:66545682
+        image: registry.gruveai.com/gruve-noc/noc-agent-backend:v1.5.58
         ports:
         - containerPort: 8000
           protocol: TCP
