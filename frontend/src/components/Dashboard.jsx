@@ -269,6 +269,112 @@ function MiniMap() {
 }
 
 // ── Stat Card ──────────────────────────────────────────────
+function DonutChart({ pct, online, offline, total }) {
+  const r = 52, cx = 64, cy = 64
+  const circ   = 2 * Math.PI * r
+  const filled = (pct / 100) * circ
+  const color  = pct >= 90 ? '#16A34A' : pct >= 70 ? '#D97706' : '#DC2626'
+  return (
+    <div style={{ display:'flex', alignItems:'center', gap:24 }}>
+      <svg width={128} height={128} viewBox="0 0 128 128">
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--bg-border)" strokeWidth={14}/>
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke={color} strokeWidth={14}
+          strokeDasharray={`${filled} ${circ}`} strokeLinecap="round"
+          transform={`rotate(-90 ${cx} ${cy})`}
+          style={{ transition:'stroke-dasharray 0.6s ease' }}/>
+        <text x={cx} y={cy-6} textAnchor="middle" fontSize={20} fontWeight={700}
+          fill="var(--text-primary)" fontFamily="monospace">{pct}%</text>
+        <text x={cx} y={cy+12} textAnchor="middle" fontSize={10} fill="var(--text-muted)">
+          devices up</text>
+      </svg>
+      <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          <Wifi size={14} color="#16A34A"/>
+          <div>
+            <div style={{ fontSize:20, fontWeight:700, color:'var(--text-primary)',
+              fontFamily:'monospace', lineHeight:1 }}>{online}</div>
+            <div style={{ fontSize:10, color:'var(--text-muted)' }}>Online</div>
+          </div>
+        </div>
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          <WifiOff size={14} color="#DC2626"/>
+          <div>
+            <div style={{ fontSize:20, fontWeight:700, color:'var(--text-primary)',
+              fontFamily:'monospace', lineHeight:1 }}>{offline}</div>
+            <div style={{ fontSize:10, color:'var(--text-muted)' }}>Offline</div>
+          </div>
+        </div>
+        <div style={{ fontSize:10, color:'var(--text-muted)',
+          paddingTop:4, borderTop:'1px solid var(--bg-border)' }}>
+          {total} total devices
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Type Bars ──────────────────────────────────────────────
+function TypeBars({ byType }) {
+  const entries = Object.entries(byType).sort((a,b)=>b[1]-a[1])
+  const max     = Math.max(...entries.map(e=>e[1]), 1)
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+      {entries.length === 0
+        ? <div style={{ fontSize:12, color:'var(--text-muted)', padding:'20px 0', textAlign:'center' }}>No incidents recorded</div>
+        : entries.map(([type, count]) => (
+          <div key={type}>
+            <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4, fontSize:12 }}>
+              <span style={{ color:'var(--text-secondary)' }}>{TYPE_LABEL[type] || type.replace(/_/g,' ')}</span>
+              <span style={{ fontWeight:600, fontFamily:'monospace', color:TYPE_COLOR[type]||'var(--text-primary)' }}>{count}</span>
+            </div>
+            <div style={{ height:7, background:'var(--bg-border)', borderRadius:4, overflow:'hidden' }}>
+              <div style={{ height:'100%', borderRadius:4,
+                background:TYPE_COLOR[type]||'var(--gruve-green)',
+                width:`${(count/max)*100}%`, transition:'width 0.6s ease' }}/>
+            </div>
+          </div>
+        ))
+      }
+    </div>
+  )
+}
+
+// ── Quick Actions ──────────────────────────────────────────
+const QUICK_JOBS = [
+  { id:12, label:'Restart Service',     icon:'🔧', color:'#2563EB' },
+  { id:18, label:'Check Disk Usage',    icon:'💾', color:'#16A34A' },
+  { id:11, label:'Check Essential Svcs',icon:'🩺', color:'#7C3AED' },
+  { id:9,  label:'Patch RHEL VMs',      icon:'📦', color:'#D97706' },
+  { id:13, label:'Remediate Service',   icon:'⚡', color:'#DC2626' },
+]
+function QuickActions({ onQuickAction }) {
+  const launch = (job) => {
+    if (onQuickAction) onQuickAction(`launch job template id ${job.id} — ${job.label}`)
+  }
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+      {QUICK_JOBS.map(job => (
+        <button key={job.id} onClick={() => launch(job)}
+          onMouseEnter={e => { e.currentTarget.style.borderColor=job.color; e.currentTarget.style.background=`${job.color}10` }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor='var(--bg-border)'; e.currentTarget.style.background='var(--bg-elevated)' }}
+          style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 12px',
+            borderRadius:8, cursor:'pointer', background:'var(--bg-elevated)',
+            border:'1px solid var(--bg-border)', transition:'all 0.15s',
+            width:'100%', textAlign:'left' }}>
+          <span style={{ fontSize:14, lineHeight:1 }}>{job.icon}</span>
+          <span style={{ flex:1, fontSize:12, fontWeight:500, color:'var(--text-secondary)' }}>
+            {job.label}
+          </span>
+          <span style={{ fontSize:10, color:'var(--text-muted)', fontFamily:'monospace' }}>→ AI</span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// ── Stat Card ──────────────────────────────────────────────
+
+
 function StatCard({ label, value, color, icon:Icon, sublabel, onClick }) {
   const [hovered, setHovered] = useState(false)
   // Pick accent class based on color
