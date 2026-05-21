@@ -85,9 +85,10 @@ function MiniMap() {
   }))
 
   return (
-    <div style={{ display:"flex", height:320, overflow:"hidden" }}>
+    <div style={{ display:"flex", height:265, overflow:"hidden" }}>
       <div style={{ flex:1, position:"relative", overflow:"hidden",
-        background:"linear-gradient(160deg,#060d1a 0%,#0a1628 40%,#0d1f38 100%)" }}>
+        background:"linear-gradient(160deg,#060d1a 0%,#0a1628 40%,#0d1f38 100%)",
+        minWidth:0 }}>
 
         <svg width="100%" height="100%" style={{ position:"absolute",top:0,left:0,opacity:0.08 }}>
           {[-150,-120,-90,-60,-30,0,30,60,90,120,150].map(lng=>(
@@ -105,7 +106,8 @@ function MiniMap() {
         </svg>
 
         <svg viewBox="0 0 960 480" width="100%" height="100%"
-          preserveAspectRatio="xMidYMid slice"
+          preserveAspectRatio="xMidYMid meet"
+          style={{ position:"absolute", top:0, left:0, width:"100%", height:"100%" }}
           style={{ position:"absolute",top:0,left:0 }}>
           <defs>
             <radialGradient id="oceanGrad" cx="50%" cy="50%" r="50%">
