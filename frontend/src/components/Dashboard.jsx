@@ -311,28 +311,28 @@ function StatCard({ label, value, color, icon:Icon, sublabel, onClick }) {
         flex:1,
         cursor: onClick ? 'pointer' : 'default',
         transition: 'all 0.2s ease',
-        transform: hovered && onClick ? 'translateY(-3px)' : 'none',
+        transform: hovered && onClick ? 'translateY(-4px)' : 'none',
         boxShadow: hovered && onClick
-          ? `0 8px 24px ${color ? color+'30' : 'rgba(0,0,0,0.10)'}` : 'var(--shadow-card)',
+          ? `0 14px 32px ${color ? color+'25' : 'rgba(0,0,0,0.12)'},0 4px 8px rgba(0,0,0,0.04)` : 'var(--shadow-card)',
       }}>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:12 }}>
         <div style={{ fontSize:11, fontWeight:600, color:'var(--text-muted)',
           textTransform:'uppercase', letterSpacing:'0.08em' }}>{label}</div>
         <div style={{
-          width:36, height:36, borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center',
+          width:40, height:40, borderRadius:12, display:'flex', alignItems:'center', justifyContent:'center',
           background: color ? `${color}18` : 'var(--bg-elevated)',
           border: color ? `1px solid ${color}30` : '1px solid var(--bg-border)',
-          flexShrink:0
+          flexShrink:0, boxShadow: color ? `0 2px 8px ${color}25` : 'none'
         }}>
-          <Icon size={16} color={color || 'var(--text-muted)'}/>
+          <Icon size={18} color={color || '#94A3B8'} strokeWidth={1.75}/>
         </div>
       </div>
       <div style={{
-        fontSize:38, fontWeight:800,
+        fontSize:42, fontWeight:800,
         color: color || 'var(--text-primary)',
         lineHeight:1, marginBottom:6,
         fontVariantNumeric:'tabular-nums',
-        letterSpacing:'-0.02em'
+        letterSpacing:'-0.03em',
       }}>{value ?? '—'}</div>
       {sublabel && (
         <div style={{ fontSize:12, color:'var(--text-muted)', fontWeight:500 }}>{sublabel}</div>
@@ -425,11 +425,20 @@ function IncidentModal({ title, incidents, onClose, onSelect }) {
 // ── Section Header ─────────────────────────────────────────
 function SectionHeader({ title, subtitle }) {
   return (
-    <div style={{ padding:'14px 16px', borderBottom:'1px solid var(--bg-border)',
-      display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-      <div>
-        <span style={{ fontWeight:600, fontSize:13 }}>{title}</span>
-        {subtitle && <span style={{ fontSize:11, color:'var(--text-muted)', marginLeft:8 }}>{subtitle}</span>}
+    <div style={{
+      padding:'12px 16px', borderBottom:'1px solid var(--bg-border)',
+      display:'flex', justifyContent:'space-between', alignItems:'center',
+      background:'linear-gradient(to right, rgba(22,163,74,0.03), transparent)'
+    }}>
+      <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+        <span style={{ fontWeight:700, fontSize:13, color:'var(--text-primary)', letterSpacing:'-0.01em' }}>{title}</span>
+        {subtitle && (
+          <span style={{
+            fontSize:10, fontWeight:600, color:'var(--gruve-green)',
+            background:'rgba(22,163,74,0.08)', border:'1px solid rgba(22,163,74,0.15)',
+            borderRadius:20, padding:'1px 8px', letterSpacing:'0.03em', textTransform:'uppercase'
+          }}>{subtitle}</span>
+        )}
       </div>
       <div className="pulse-dot" style={{ background:'var(--gruve-green)' }}/>
     </div>
@@ -667,7 +676,7 @@ export default function Dashboard({ stats, incidents, onSelect, onQuickAction })
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:12 }}>
             <div style={{ display:'flex', alignItems:'center', gap:16 }}>
               <div>
-                <div style={{ fontSize:13, fontWeight:700, marginBottom:2 }}>
+                <div style={{ fontSize:15, fontWeight:800, marginBottom:4, letterSpacing:'-0.01em' }}>
                   Vulnerability Risk
                 </div>
                 <div style={{ fontSize:11, color:'var(--text-muted)' }}>
@@ -675,14 +684,15 @@ export default function Dashboard({ stats, incidents, onSelect, onQuickAction })
                 </div>
               </div>
               {/* Risk score */}
-              <div style={{ textAlign:'center', padding:'4px 16px',
-                borderRadius:8, background:'rgba(0,0,0,0.2)',
-                border:'1px solid var(--bg-border)' }}>
-                <div style={{ fontSize:24, fontWeight:700,
-                  color: vuln.fleet_risk_score >= 70 ? '#f87171'
-                    : vuln.fleet_risk_score >= 40 ? '#fb923c'
-                    : vuln.fleet_risk_score >= 20 ? '#facc15'
-                    : '#4ade80' }}>
+              <div style={{ textAlign:'center', padding:'8px 20px',
+                borderRadius:12, minWidth:80,
+                background: vuln.fleet_risk_score >= 70 ? 'rgba(220,38,38,0.08)' : vuln.fleet_risk_score >= 40 ? 'rgba(217,119,6,0.08)' : 'rgba(22,163,74,0.08)',
+                border: `1px solid ${vuln.fleet_risk_score >= 70 ? 'rgba(220,38,38,0.20)' : vuln.fleet_risk_score >= 40 ? 'rgba(217,119,6,0.20)' : 'rgba(22,163,74,0.20)'}` }}>
+                <div style={{ fontSize:34, fontWeight:900, lineHeight:1, letterSpacing:'-0.03em',
+                  color: vuln.fleet_risk_score >= 70 ? '#DC2626'
+                    : vuln.fleet_risk_score >= 40 ? '#D97706'
+                    : vuln.fleet_risk_score >= 20 ? '#B45309'
+                    : '#16A34A' }}>
                   {vuln.fleet_risk_score}
                 </div>
                 <div style={{ fontSize:9, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.05em' }}>Risk Score</div>
