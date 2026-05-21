@@ -85,7 +85,7 @@ function MiniMap() {
   }))
 
   return (
-    <div style={{ display:"flex", height:280, overflow:"hidden" }}>
+    <div style={{ display:"flex", height:320, overflow:"hidden" }}>
       <div style={{ flex:1, position:"relative", overflow:"hidden",
         background:"linear-gradient(160deg,#060d1a 0%,#0a1628 40%,#0d1f38 100%)" }}>
 
@@ -105,7 +105,7 @@ function MiniMap() {
         </svg>
 
         <svg viewBox="0 0 960 480" width="100%" height="100%"
-          preserveAspectRatio="xMidYMid meet"
+          preserveAspectRatio="xMidYMid slice"
           style={{ position:"absolute",top:0,left:0 }}>
           <defs>
             <radialGradient id="oceanGrad" cx="50%" cy="50%" r="50%">
@@ -168,7 +168,7 @@ function MiniMap() {
             const isSel = selected === group.networkId
             const pulseR = 7 + Math.sin(tick * 0.06) * 3
             const color = ok ? "#4ade80" : "#f87171"
-            const labelW = group.networkName.length * 5.5 + 20
+            const labelW = group.networkName.length * 6.8 + 24
             return (
               <g key={group.networkId}
                 onClick={() => setSelected(group.networkId)}
@@ -182,10 +182,10 @@ function MiniMap() {
                   filter="url(#pinGlow)"/>
                 <circle cx={x} cy={y} r={isSel?4:3}
                   fill={color} filter="url(#pinGlow)"/>
-                <rect x={x+10} y={y-9} width={labelW} height={17}
+                <rect x={x+10} y={y-10} width={labelW} height={20}
                   rx="3" fill="rgba(6,13,26,0.88)" stroke={color+"50"} strokeWidth="0.8"/>
-                <text x={x+15} y={y+2.5}
-                  fontSize="8.5" fill={color}
+                <text x={x+15} y={y+4}
+                  fontSize="11" fill={color}
                   fontFamily="monospace" fontWeight="700">
                   {group.networkName} {group.online}/{group.total}
                 </text>
@@ -203,7 +203,7 @@ function MiniMap() {
         )}
       </div>
 
-      <div style={{ width:165, borderLeft:"1px solid var(--bg-border)",
+      <div style={{ width:180, borderLeft:"1px solid var(--bg-border)",
         display:"flex", flexDirection:"column", overflow:"hidden",
         background:"var(--bg-surface)" }}>
         {selGroup ? (
