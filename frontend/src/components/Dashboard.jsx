@@ -296,32 +296,54 @@ function QuickActions({ onQuickAction }) {
 // ── Stat Card ──────────────────────────────────────────────
 function StatCard({ label, value, color, icon:Icon, sublabel, onClick }) {
   const [hovered, setHovered] = useState(false)
+  // Pick accent class based on color
+  const accentClass = color === '#DC2626' ? 'stat-card-critical'
+    : color === '#D97706' ? 'stat-card-warning'
+    : color === '#16A34A' ? 'stat-card-success'
+    : 'stat-card-neutral'
   return (
-    <div className="card" onClick={onClick}
+    <div
+      className={`card ${accentClass}`}
+      onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      style={{ flex:1, cursor:onClick?'pointer':'default', transition:'all 0.15s',
-        transform:hovered&&onClick?'translateY(-2px)':'none',
-        boxShadow:hovered&&onClick?'0 4px 12px rgba(0,0,0,0.08)':'none',
-        borderColor:hovered&&onClick?(color||'var(--gruve-green)'):'var(--bg-border)' }}>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
-        <div>
-          <div style={{ fontSize:11, color:'var(--text-muted)', textTransform:'uppercase',
-            letterSpacing:'0.06em', marginBottom:8 }}>{label}</div>
-          <div style={{ fontSize:32, fontWeight:700, color:color||'var(--text-primary)',
-            fontFamily:'monospace' }}>{value ?? '—'}</div>
-          {sublabel && <div style={{ fontSize:11, color:'var(--text-secondary)', marginTop:4 }}>{sublabel}</div>}
-        </div>
-        <div style={{ padding:10, borderRadius:10,
-          background:color?`${color}15`:'var(--bg-elevated)',
-          border:color?`1px solid ${color}30`:'1px solid var(--bg-border)' }}>
-          <Icon size={18} color={color||'var(--text-muted)'}/>
+      style={{
+        flex:1,
+        cursor: onClick ? 'pointer' : 'default',
+        transition: 'all 0.2s ease',
+        transform: hovered && onClick ? 'translateY(-3px)' : 'none',
+        boxShadow: hovered && onClick
+          ? `0 8px 24px ${color ? color+'30' : 'rgba(0,0,0,0.10)'}` : 'var(--shadow-card)',
+      }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:12 }}>
+        <div style={{ fontSize:11, fontWeight:600, color:'var(--text-muted)',
+          textTransform:'uppercase', letterSpacing:'0.08em' }}>{label}</div>
+        <div style={{
+          width:36, height:36, borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center',
+          background: color ? `${color}18` : 'var(--bg-elevated)',
+          border: color ? `1px solid ${color}30` : '1px solid var(--bg-border)',
+          flexShrink:0
+        }}>
+          <Icon size={16} color={color || 'var(--text-muted)'}/>
         </div>
       </div>
+      <div style={{
+        fontSize:38, fontWeight:800,
+        color: color || 'var(--text-primary)',
+        lineHeight:1, marginBottom:6,
+        fontVariantNumeric:'tabular-nums',
+        letterSpacing:'-0.02em'
+      }}>{value ?? '—'}</div>
+      {sublabel && (
+        <div style={{ fontSize:12, color:'var(--text-muted)', fontWeight:500 }}>{sublabel}</div>
+      )}
       {onClick && (
-        <div style={{ fontSize:10, color:color||'var(--gruve-green)',
-          marginTop:10, opacity:hovered?1:0, transition:'opacity 0.15s' }}>
-          Click to view all →
+        <div style={{
+          fontSize:11, color: color || 'var(--gruve-green)', fontWeight:600,
+          marginTop:12, opacity: hovered ? 1 : 0, transition:'opacity 0.15s',
+          display:'flex', alignItems:'center', gap:4
+        }}>
+          View all <span style={{ fontSize:13 }}>→</span>
         </div>
       )}
     </div>
@@ -584,11 +606,33 @@ export default function Dashboard({ stats, incidents, onSelect, onQuickAction })
     <div style={{ padding:24, overflowY:'auto', height:'100%' }}>
 
       {/* Header */}
-      <div style={{ marginBottom:20 }}>
-        <h1 style={{ fontSize:20, fontWeight:700, color:'var(--text-primary)' }}>Dashboard</h1>
-        <p style={{ fontSize:13, color:'var(--text-secondary)', marginTop:3 }}>
-          Governed execution layer for agentic operations powered by Ansible Automation Platform
-        </p>
+      <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:24 }}>
+        <div>
+          <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:4 }}>
+            <h1 style={{ fontSize:22, fontWeight:800, color:'var(--text-primary)', letterSpacing:'-0.02em' }}>
+              Dashboard
+            </h1>
+            <span style={{
+              display:'inline-flex', alignItems:'center', gap:5,
+              fontSize:11, fontWeight:600, color:'var(--status-ok)',
+              background:'rgba(22,163,74,0.10)', border:'1px solid rgba(22,163,74,0.20)',
+              borderRadius:20, padding:'2px 10px'
+            }}>
+              <span style={{ width:6, height:6, borderRadius:'50%', background:'var(--status-ok)',
+                display:'inline-block', animation:'pulse-dot 2s ease-in-out infinite' }}/>
+              Live
+            </span>
+          </div>
+          <p style={{ fontSize:13, color:'var(--text-muted)', fontWeight:400 }}>
+            Governed execution layer · Ansible Automation Platform · Real-time monitoring
+          </p>
+        </div>
+        <div style={{ fontSize:12, color:'var(--text-muted)', textAlign:'right', paddingTop:4 }}>
+          <div style={{ fontWeight:600, color:'var(--text-secondary)' }}>
+            {new Date().toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' })}
+          </div>
+          <div>{new Date().toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' })}</div>
+        </div>
       </div>
 
       {/* Row 1: Network Map — full width */}
@@ -612,9 +656,14 @@ export default function Dashboard({ stats, incidents, onSelect, onQuickAction })
       {/* Row 2b: Vulnerability Risk Tile */}
       {vuln && (
         <div className="card" style={{ marginBottom:20, padding:'16px 20px',
-          borderLeft: vuln.total_critical > 0 ? '3px solid #f87171'
-            : vuln.total_important > 0 ? '3px solid #fb923c'
-            : '3px solid var(--gruve-green)' }}>
+          borderLeft: vuln.total_critical > 0 ? '3px solid #DC2626'
+            : vuln.total_important > 0 ? '3px solid #D97706'
+            : '3px solid var(--gruve-green)',
+          background: vuln.total_critical > 0
+            ? 'linear-gradient(135deg, rgba(220,38,38,0.04) 0%, #ffffff 40%)'
+            : vuln.total_important > 0
+            ? 'linear-gradient(135deg, rgba(217,119,6,0.04) 0%, #ffffff 40%)'
+            : 'linear-gradient(135deg, rgba(22,163,74,0.04) 0%, #ffffff 40%)' }}>
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:12 }}>
             <div style={{ display:'flex', alignItems:'center', gap:16 }}>
               <div>
