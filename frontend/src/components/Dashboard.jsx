@@ -32,7 +32,11 @@ const TYPE_ICON_MAP = {
   default:   { color:'#6B7280', label:'Device' },
 }
 function latLngToPercent(lat, lng) {
-  return { x:((lng+180)/360)*100, y:((90-lat)/180)*100 }
+  const x = ((lng + 180) / 360) * 100
+  const latRad = lat * Math.PI / 180
+  const mercN = Math.log(Math.tan(Math.PI/4 + latRad/2))
+  const y = (1 - mercN / Math.PI) / 2 * 100
+  return { x, y }
 }
 
 function MiniMap() {
