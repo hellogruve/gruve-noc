@@ -19,7 +19,7 @@ spec:
       serviceAccountName: default
       containers:
       - name: noc-agent-fe
-        image: registry.gruveai.com/gruve-noc/noc-agent-frontend:v1.5.61
+        image: registry.gruveai.com/gruve-noc/noc-agent-frontend:ba5ff3ef
         ports:
         - containerPort: 8080
           name: http
