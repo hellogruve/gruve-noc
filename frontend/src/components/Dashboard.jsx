@@ -18,6 +18,7 @@ const TYPE_LABEL = {
   VM_SERVICE_DOWN: 'VM Service Down',
 }
 
+
 // ── Mini Network Map ───────────────────────────────────────
 const NETWORK_LOCATIONS = {
   'Redwood City': { lat:37.4852, lng:-122.2364, city:'Redwood City, CA' },
@@ -38,6 +39,7 @@ function MiniMap() {
   const [data,     setData]     = useState(null)
   const [selected, setSelected] = useState(null)
   const [loading,  setLoading]  = useState(true)
+  const [tick,     setTick]     = useState(0)
 
   const load = async () => {
     try {
@@ -50,122 +52,205 @@ function MiniMap() {
   }
 
   useEffect(() => { load(); const t=setInterval(load,30000); return()=>clearInterval(t) }, [])
+  useEffect(() => { const t=setInterval(()=>setTick(x=>x+1),50); return()=>clearInterval(t) }, [])
 
   const selGroup = data?.groups?.find(g => g.networkId === selected)
 
+  const worldPaths = [
+    "M148,52 L155,48 L175,42 L210,40 L245,38 L268,44 L280,52 L285,62 L278,72 L270,85 L258,95 L248,108 L240,118 L228,125 L215,130 L200,132 L188,128 L175,120 L162,110 L152,98 L144,84 L140,72 L142,60 Z",
+    "M248,18 L268,14 L288,16 L298,26 L292,38 L278,44 L260,42 L248,32 Z",
+    "M190,135 L210,138 L215,148 L205,155 L192,152 L185,142 Z",
+    "M195,160 L215,155 L235,158 L248,170 L255,190 L258,215 L252,240 L240,260 L225,275 L210,278 L196,268 L184,250 L178,228 L180,205 L185,182 Z",
+    "M440,42 L458,38 L475,40 L488,46 L495,55 L490,65 L478,72 L465,75 L450,72 L438,62 L435,52 Z",
+    "M452,22 L462,18 L472,22 L475,34 L468,40 L455,38 L448,30 Z",
+    "M424,42 L432,38 L438,44 L435,52 L426,52 L420,46 Z",
+    "M448,88 L468,82 L490,84 L508,92 L518,108 L522,130 L518,155 L508,178 L492,195 L475,202 L458,198 L442,185 L432,165 L428,140 L430,115 L436,98 Z",
+    "M488,28 L540,18 L600,14 L660,16 L720,22 L765,28 L790,38 L800,50 L790,62 L760,68 L720,72 L680,70 L640,66 L595,65 L555,62 L520,58 L495,52 L484,42 Z",
+    "M488,88 L510,84 L528,88 L535,100 L528,112 L512,118 L495,115 L482,104 Z",
+    "M558,88 L585,82 L605,85 L618,98 L618,115 L610,132 L595,142 L580,145 L565,138 L555,122 L550,105 Z",
+    "M635,100 L658,95 L672,102 L675,115 L665,125 L648,128 L635,120 L628,108 Z",
+    "M640,55 L680,48 L718,52 L738,62 L740,78 L728,88 L705,92 L678,88 L655,80 L638,68 Z",
+    "M748,58 L758,54 L768,58 L768,68 L758,72 L748,68 Z",
+    "M688,248 L720,238 L755,240 L778,252 L785,268 L778,285 L760,295 L735,298 L710,292 L692,278 L682,262 Z",
+    "M800,295 L808,288 L815,295 L812,308 L802,312 L796,304 Z",
+  ]
+
+  const connectedGroups = !loading && data?.groups
+    ? data.groups.filter(g => NETWORK_LOCATIONS[g.networkName])
+    : []
+
+  const positions = connectedGroups.map(g => ({
+    ...g,
+    pos: latLngToPercent(NETWORK_LOCATIONS[g.networkName].lat, NETWORK_LOCATIONS[g.networkName].lng)
+  }))
+
   return (
-    <div style={{ display:'flex', height:260, overflow:'hidden' }}>
-      {/* Map */}
-      <div style={{ flex:1, position:'relative', overflow:'hidden',
-        background:'linear-gradient(180deg,#0d1117 0%,#0a1628 100%)' }}>
-        {/* Grid */}
-        <svg width="100%" height="100%" style={{ position:'absolute',top:0,left:0,opacity:0.12 }}>
-          {[-90,-60,-30,0,30,60,90,120,150].map(lng=>(
-            <line key={lng} x1={`${((lng+180)/360)*100}%`} y1="0"
-              x2={`${((lng+180)/360)*100}%`} y2="100%"
-              stroke="#00D46A" strokeWidth="0.5" strokeDasharray="3 6"/>
+    <div style={{ display:"flex", height:280, overflow:"hidden" }}>
+      <div style={{ flex:1, position:"relative", overflow:"hidden",
+        background:"linear-gradient(160deg,#060d1a 0%,#0a1628 40%,#0d1f38 100%)" }}>
+
+        <svg width="100%" height="100%" style={{ position:"absolute",top:0,left:0,opacity:0.08 }}>
+          {[-150,-120,-90,-60,-30,0,30,60,90,120,150].map(lng=>(
+            <line key={"v"+lng}
+              x1={((lng+180)/360)*100+"%"} y1="0"
+              x2={((lng+180)/360)*100+"%"} y2="100%"
+              stroke="#4ade80" strokeWidth="0.4" strokeDasharray="2 8"/>
           ))}
-          {[-30,0,30,60].map(lat=>(
-            <line key={lat} x1="0" y1={`${((90-lat)/180)*100}%`}
-              x2="100%" y2={`${((90-lat)/180)*100}%`}
-              stroke="#00D46A" strokeWidth="0.5" strokeDasharray="3 6"/>
+          {[-60,-30,0,30,60].map(lat=>(
+            <line key={"h"+lat} x1="0"
+              y1={((90-lat)/180)*100+"%"} x2="100%"
+              y2={((90-lat)/180)*100+"%"}
+              stroke="#4ade80" strokeWidth="0.4" strokeDasharray="2 8"/>
           ))}
         </svg>
-        {/* Continents */}
-        <svg viewBox="0 0 1000 500" width="100%" height="100%"
-          style={{ position:'absolute',top:0,left:0 }}>
-          <path d="M 150 80 L 280 70 L 310 130 L 290 200 L 240 230 L 180 210 L 140 160 Z" fill="rgba(0,212,106,0.06)" stroke="rgba(0,212,106,0.18)" strokeWidth="1"/>
-          <path d="M 220 250 L 290 240 L 300 350 L 250 420 L 200 380 L 190 300 Z"         fill="rgba(0,212,106,0.06)" stroke="rgba(0,212,106,0.18)" strokeWidth="1"/>
-          <path d="M 460 60 L 560 55 L 570 120 L 500 140 L 450 120 Z"                     fill="rgba(0,212,106,0.06)" stroke="rgba(0,212,106,0.18)" strokeWidth="1"/>
-          <path d="M 470 150 L 560 140 L 580 280 L 520 360 L 460 300 L 450 200 Z"         fill="rgba(0,212,106,0.06)" stroke="rgba(0,212,106,0.18)" strokeWidth="1"/>
-          <path d="M 570 50 L 850 40 L 880 180 L 800 220 L 680 200 L 580 160 L 560 100 Z" fill="rgba(0,212,106,0.06)" stroke="rgba(0,212,106,0.18)" strokeWidth="1"/>
-          <path d="M 760 280 L 870 270 L 880 360 L 820 390 L 750 350 Z"                   fill="rgba(0,212,106,0.06)" stroke="rgba(0,212,106,0.18)" strokeWidth="1"/>
+
+        <svg viewBox="0 0 960 480" width="100%" height="100%"
+          preserveAspectRatio="xMidYMid meet"
+          style={{ position:"absolute",top:0,left:0 }}>
+          <defs>
+            <radialGradient id="oceanGrad" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#0d2040" stopOpacity="0"/>
+              <stop offset="100%" stopColor="#060d1a" stopOpacity="0.5"/>
+            </radialGradient>
+            <filter id="glow">
+              <feGaussianBlur stdDeviation="2" result="blur"/>
+              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+            <filter id="pinGlow">
+              <feGaussianBlur stdDeviation="3" result="blur"/>
+              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+
+          <rect width="960" height="480" fill="url(#oceanGrad)"/>
+
+          {worldPaths.map((d,i) => (
+            <path key={i} d={d}
+              fill="rgba(30,58,95,0.75)"
+              stroke="rgba(96,165,250,0.22)"
+              strokeWidth="0.8"/>
+          ))}
+
+          <line x1="0" y1="240" x2="960" y2="240"
+            stroke="rgba(96,165,250,0.10)" strokeWidth="1" strokeDasharray="6 12"/>
+
+          {positions.map((p1,i) => positions.slice(i+1).map((p2,j) => {
+            const x1 = p1.pos.x * 9.6
+            const y1 = p1.pos.y * 4.8
+            const x2 = p2.pos.x * 9.6
+            const y2 = p2.pos.y * 4.8
+            const mx = (x1+x2)/2
+            const my = Math.min(y1,y2) - 45
+            const allOnline = p1.offline===0 && p2.offline===0
+            const color = allOnline ? "rgba(74,222,128,0.3)" : "rgba(248,113,113,0.3)"
+            const dotColor = allOnline ? "#4ade80" : "#f87171"
+            const speed = 0.006
+            const t1 = (tick * speed) % 1
+            const t2 = ((tick * speed) + 0.5) % 1
+            const bx1 = (1-t1)*(1-t1)*x1 + 2*(1-t1)*t1*mx + t1*t1*x2
+            const by1 = (1-t1)*(1-t1)*y1 + 2*(1-t1)*t1*my + t1*t1*y2
+            const bx2 = (1-t2)*(1-t2)*x2 + 2*(1-t2)*t2*mx + t2*t2*x1
+            const by2 = (1-t2)*(1-t2)*y2 + 2*(1-t2)*t2*my + t2*t2*y1
+            return (
+              <g key={i+"-"+j}>
+                <path d={"M"+x1+","+y1+" Q"+mx+","+my+" "+x2+","+y2}
+                  fill="none" stroke={color} strokeWidth="1.5" strokeDasharray="6 4"/>
+                <circle cx={bx1} cy={by1} r="2.8" fill={dotColor} filter="url(#glow)" opacity="0.95"/>
+                <circle cx={bx2} cy={by2} r="2" fill={dotColor} opacity="0.5"/>
+              </g>
+            )
+          }))}
+
+          {positions.map(group => {
+            const x = group.pos.x * 9.6
+            const y = group.pos.y * 4.8
+            const ok = group.offline === 0
+            const isSel = selected === group.networkId
+            const pulseR = 7 + Math.sin(tick * 0.06) * 3
+            const color = ok ? "#4ade80" : "#f87171"
+            const labelW = group.networkName.length * 5.5 + 20
+            return (
+              <g key={group.networkId}
+                onClick={() => setSelected(group.networkId)}
+                style={{ cursor:"pointer" }}>
+                <circle cx={x} cy={y} r={pulseR + (isSel?5:0)}
+                  fill="none" stroke={color} strokeWidth="1"
+                  opacity={0.25 + Math.sin(tick*0.06)*0.15}/>
+                <circle cx={x} cy={y} r={isSel?8:5}
+                  fill={isSel ? color+"40" : color+"20"}
+                  stroke={color} strokeWidth={isSel?2:1.2}
+                  filter="url(#pinGlow)"/>
+                <circle cx={x} cy={y} r={isSel?4:3}
+                  fill={color} filter="url(#pinGlow)"/>
+                <rect x={x+10} y={y-9} width={labelW} height={17}
+                  rx="3" fill="rgba(6,13,26,0.88)" stroke={color+"50"} strokeWidth="0.8"/>
+                <text x={x+15} y={y+2.5}
+                  fontSize="8.5" fill={color}
+                  fontFamily="monospace" fontWeight="700">
+                  {group.networkName} {group.online}/{group.total}
+                </text>
+              </g>
+            )
+          })}
         </svg>
-        {/* Connection lines */}
-        {!loading && data?.groups?.length > 1 && (()=>{
-          const positions = data.groups
-            .filter(g=>NETWORK_LOCATIONS[g.networkName])
-            .map(g=>latLngToPercent(NETWORK_LOCATIONS[g.networkName].lat,NETWORK_LOCATIONS[g.networkName].lng))
-          return (
-            <svg width="100%" height="100%" style={{position:'absolute',top:0,left:0,pointerEvents:'none'}}>
-              {positions.map((p1,i)=>positions.slice(i+1).map((p2,j)=>(
-                <line key={`${i}-${j}`} x1={`${p1.x}%`} y1={`${p1.y}%`} x2={`${p2.x}%`} y2={`${p2.y}%`}
-                  stroke="rgba(0,212,106,0.2)" strokeWidth="1" strokeDasharray="4 4"/>
-              )))}
-            </svg>
-          )
-        })()}
-        {/* Pins */}
-        {!loading && data?.groups?.map(group=>{
-          const loc = NETWORK_LOCATIONS[group.networkName]
-          if (!loc) return null
-          const pos   = latLngToPercent(loc.lat, loc.lng)
-          const ok    = group.offline === 0
-          const isSel = selected === group.networkId
-          return (
-            <div key={group.networkId} onClick={()=>setSelected(group.networkId)}
-              style={{ position:'absolute', left:`${pos.x}%`, top:`${pos.y}%`,
-                transform:'translate(-50%,-50%)', cursor:'pointer', zIndex:isSel?10:5 }}>
-              {ok && <div style={{ position:'absolute', width:32, height:32, borderRadius:'50%',
-                background:'rgba(0,212,106,0.15)', border:'1px solid rgba(0,212,106,0.4)',
-                top:'50%', left:'50%', transform:'translate(-50%,-50%)',
-                animation:'mmPulse 2s ease-out infinite' }}/>}
-              <div style={{ width:26, height:26, borderRadius:'50%',
-                background:isSel?'#16A34A':'#1a2332',
-                border:`2px solid ${ok?'#16A34A':'#DC2626'}`,
-                display:'flex', alignItems:'center', justifyContent:'center',
-                boxShadow:`0 2px 8px ${ok?'rgba(22,163,74,0.5)':'rgba(220,38,38,0.5)'}`,
-                transition:'all 0.2s' }}>
-                <MapPin size={12} color={isSel?'#fff':ok?'#16A34A':'#DC2626'}/>
-              </div>
-              <div style={{ position:'absolute', top:28, left:'50%', transform:'translateX(-50%)',
-                background:'rgba(10,14,26,0.9)', border:'1px solid rgba(255,255,255,0.1)',
-                borderRadius:4, padding:'2px 6px', fontSize:9, fontWeight:600,
-                color:'#e2e8f0', whiteSpace:'nowrap', pointerEvents:'none' }}>
-                {group.networkName} {group.online}/{group.total}
-              </div>
-            </div>
-          )
-        })}
-        {loading && <div style={{ position:'absolute',inset:0,display:'flex',
-          alignItems:'center',justifyContent:'center',
-          color:'rgba(255,255,255,0.3)',fontSize:12 }}>Loading map…</div>}
+
+        {loading && (
+          <div style={{ position:"absolute",inset:0,display:"flex",
+            alignItems:"center",justifyContent:"center",
+            color:"rgba(255,255,255,0.3)",fontSize:12 }}>
+            Loading map…
+          </div>
+        )}
       </div>
-      {/* Side panel */}
-      <div style={{ width:160, borderLeft:'1px solid var(--bg-border)',
-        display:'flex', flexDirection:'column', overflow:'hidden',
-        background:'var(--bg-surface)' }}>
+
+      <div style={{ width:165, borderLeft:"1px solid var(--bg-border)",
+        display:"flex", flexDirection:"column", overflow:"hidden",
+        background:"var(--bg-surface)" }}>
         {selGroup ? (
           <>
-            <div style={{ padding:'10px 12px', borderBottom:'1px solid var(--bg-border)' }}>
-              <div style={{ fontSize:11, fontWeight:600, color:'var(--text-primary)',
-                overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+            <div style={{ padding:"10px 12px", borderBottom:"1px solid var(--bg-border)",
+              background:"linear-gradient(to bottom, rgba(22,163,74,0.04), transparent)" }}>
+              <div style={{ fontSize:12, fontWeight:700, color:"var(--text-primary)",
+                overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                 {selGroup.networkName}
               </div>
-              <div style={{ fontSize:10, color:'var(--text-muted)', marginTop:2 }}>
+              <div style={{ fontSize:10, color:"var(--text-muted)", marginTop:2 }}>
                 {NETWORK_LOCATIONS[selGroup.networkName]?.city}
               </div>
-              <div style={{ display:'flex', gap:8, marginTop:4 }}>
-                <span style={{ fontSize:10, color:'#16A34A', fontWeight:600 }}>{selGroup.online}↑ online</span>
-                {selGroup.offline > 0 && <span style={{ fontSize:10, color:'#DC2626', fontWeight:600 }}>{selGroup.offline}↓ offline</span>}
+              <div style={{ display:"flex", gap:6, marginTop:6, flexWrap:"wrap" }}>
+                <span style={{ fontSize:10, color:"#15803D", fontWeight:700,
+                  background:"rgba(22,163,74,0.10)", borderRadius:10, padding:"1px 7px",
+                  border:"1px solid rgba(22,163,74,0.18)" }}>
+                  {selGroup.online}↑ online
+                </span>
+                {selGroup.offline > 0 && (
+                  <span style={{ fontSize:10, color:"#DC2626", fontWeight:700,
+                    background:"rgba(220,38,38,0.10)", borderRadius:10, padding:"1px 7px",
+                    border:"1px solid rgba(220,38,38,0.18)" }}>
+                    {selGroup.offline}↓ offline
+                  </span>
+                )}
               </div>
             </div>
-            <div style={{ flex:1, overflowY:'auto', padding:'6px 8px' }}>
-              {selGroup.devices.map(dev=>{
+            <div style={{ flex:1, overflowY:"auto", padding:"6px 8px" }}>
+              {selGroup.devices.map(dev => {
                 const info = TYPE_ICON_MAP[dev.productType] || TYPE_ICON_MAP.default
-                const on   = dev.status === 'online'
+                const on   = dev.status === "online"
                 return (
-                  <div key={dev.serial} style={{ display:'flex', alignItems:'center', gap:6,
-                    padding:'4px 0', borderBottom:'1px solid var(--bg-border)' }}>
-                    <div style={{ width:5, height:5, borderRadius:'50%', flexShrink:0,
-                      background:on?'#16A34A':'#DC2626',
-                      boxShadow:`0 0 4px ${on?'rgba(22,163,74,0.6)':'rgba(220,38,38,0.6)'}` }}/>
+                  <div key={dev.serial} style={{ display:"flex", alignItems:"center", gap:6,
+                    padding:"5px 4px", borderBottom:"1px solid var(--bg-border)",
+                    borderRadius:4, transition:"background 0.1s" }}
+                    onMouseEnter={e=>e.currentTarget.style.background="var(--bg-elevated)"}
+                    onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                    <div style={{ width:6, height:6, borderRadius:"50%", flexShrink:0,
+                      background:on?"#16A34A":"#DC2626",
+                      boxShadow:"0 0 5px "+(on?"rgba(22,163,74,0.7)":"rgba(220,38,38,0.7)")}}/>
                     <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontSize:10, fontWeight:500, color:'var(--text-primary)',
-                        overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                      <div style={{ fontSize:10, fontWeight:600, color:"var(--text-primary)",
+                        overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                         {dev.name}
                       </div>
-                      <div style={{ fontSize:9, color:'var(--text-muted)' }}>{info.label}</div>
+                      <div style={{ fontSize:9, color:"var(--text-muted)" }}>{info.label}</div>
                     </div>
                   </div>
                 )
@@ -173,122 +258,12 @@ function MiniMap() {
             </div>
           </>
         ) : (
-          <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center',
-            color:'var(--text-muted)', fontSize:11, textAlign:'center', padding:12 }}>
-            Click a pin
+          <div style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center",
+            color:"var(--text-muted)", fontSize:11, textAlign:"center", padding:12 }}>
+            Click a pin to see devices
           </div>
         )}
       </div>
-      <style>{`
-        @keyframes mmPulse {
-          0%   { transform:translate(-50%,-50%) scale(1);   opacity:0.8; }
-          100% { transform:translate(-50%,-50%) scale(2.2); opacity:0; }
-        }
-      `}</style>
-    </div>
-  )
-}
-
-// ── Donut Chart ────────────────────────────────────────────
-function DonutChart({ pct, online, offline, total }) {
-  const r = 52, cx = 64, cy = 64
-  const circ   = 2 * Math.PI * r
-  const filled = (pct / 100) * circ
-  const color  = pct >= 90 ? '#16A34A' : pct >= 70 ? '#D97706' : '#DC2626'
-  return (
-    <div style={{ display:'flex', alignItems:'center', gap:24 }}>
-      <svg width={128} height={128} viewBox="0 0 128 128">
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--bg-border)" strokeWidth={14}/>
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke={color} strokeWidth={14}
-          strokeDasharray={`${filled} ${circ}`} strokeLinecap="round"
-          transform={`rotate(-90 ${cx} ${cy})`}
-          style={{ transition:'stroke-dasharray 0.6s ease' }}/>
-        <text x={cx} y={cy-6} textAnchor="middle" fontSize={20} fontWeight={700}
-          fill="var(--text-primary)" fontFamily="monospace">{pct}%</text>
-        <text x={cx} y={cy+12} textAnchor="middle" fontSize={10} fill="var(--text-muted)">
-          devices up</text>
-      </svg>
-      <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-          <Wifi size={14} color="#16A34A"/>
-          <div>
-            <div style={{ fontSize:20, fontWeight:700, color:'var(--text-primary)',
-              fontFamily:'monospace', lineHeight:1 }}>{online}</div>
-            <div style={{ fontSize:10, color:'var(--text-muted)' }}>Online</div>
-          </div>
-        </div>
-        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-          <WifiOff size={14} color="#DC2626"/>
-          <div>
-            <div style={{ fontSize:20, fontWeight:700, color:'var(--text-primary)',
-              fontFamily:'monospace', lineHeight:1 }}>{offline}</div>
-            <div style={{ fontSize:10, color:'var(--text-muted)' }}>Offline</div>
-          </div>
-        </div>
-        <div style={{ fontSize:10, color:'var(--text-muted)',
-          paddingTop:4, borderTop:'1px solid var(--bg-border)' }}>
-          {total} total devices
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ── Type Bars ──────────────────────────────────────────────
-function TypeBars({ byType }) {
-  const entries = Object.entries(byType).sort((a,b)=>b[1]-a[1])
-  const max     = Math.max(...entries.map(e=>e[1]), 1)
-  return (
-    <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-      {entries.length === 0
-        ? <div style={{ fontSize:12, color:'var(--text-muted)', padding:'20px 0', textAlign:'center' }}>No incidents recorded</div>
-        : entries.map(([type, count]) => (
-          <div key={type}>
-            <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4, fontSize:12 }}>
-              <span style={{ color:'var(--text-secondary)' }}>{TYPE_LABEL[type] || type.replace(/_/g,' ')}</span>
-              <span style={{ fontWeight:600, fontFamily:'monospace', color:TYPE_COLOR[type]||'var(--text-primary)' }}>{count}</span>
-            </div>
-            <div style={{ height:7, background:'var(--bg-border)', borderRadius:4, overflow:'hidden' }}>
-              <div style={{ height:'100%', borderRadius:4,
-                background:TYPE_COLOR[type]||'var(--gruve-green)',
-                width:`${(count/max)*100}%`, transition:'width 0.6s ease' }}/>
-            </div>
-          </div>
-        ))
-      }
-    </div>
-  )
-}
-
-// ── Quick Actions ──────────────────────────────────────────
-const QUICK_JOBS = [
-  { id:12, label:'Restart Service',     icon:'🔧', color:'#2563EB' },
-  { id:18, label:'Check Disk Usage',    icon:'💾', color:'#16A34A' },
-  { id:11, label:'Check Essential Svcs',icon:'🩺', color:'#7C3AED' },
-  { id:9,  label:'Patch RHEL VMs',      icon:'📦', color:'#D97706' },
-  { id:13, label:'Remediate Service',   icon:'⚡', color:'#DC2626' },
-]
-function QuickActions({ onQuickAction }) {
-  const launch = (job) => {
-    if (onQuickAction) onQuickAction(`launch job template id ${job.id} — ${job.label}`)
-  }
-  return (
-    <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-      {QUICK_JOBS.map(job => (
-        <button key={job.id} onClick={() => launch(job)}
-          onMouseEnter={e => { e.currentTarget.style.borderColor=job.color; e.currentTarget.style.background=`${job.color}10` }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor='var(--bg-border)'; e.currentTarget.style.background='var(--bg-elevated)' }}
-          style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 12px',
-            borderRadius:8, cursor:'pointer', background:'var(--bg-elevated)',
-            border:'1px solid var(--bg-border)', transition:'all 0.15s',
-            width:'100%', textAlign:'left' }}>
-          <span style={{ fontSize:14, lineHeight:1 }}>{job.icon}</span>
-          <span style={{ flex:1, fontSize:12, fontWeight:500, color:'var(--text-secondary)' }}>
-            {job.label}
-          </span>
-          <span style={{ fontSize:10, color:'var(--text-muted)', fontFamily:'monospace' }}>→ AI</span>
-        </button>
-      ))}
     </div>
   )
 }
