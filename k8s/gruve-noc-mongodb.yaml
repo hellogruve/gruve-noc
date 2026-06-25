@@ -51,7 +51,7 @@ spec:
       volumes:
       - name: mongodb-data
         persistentVolumeClaim:
-          claimName: mongodb-pvc
+          claimName: mongodb-pvc-rwx
 ---
 apiVersion: v1
 kind: Service
